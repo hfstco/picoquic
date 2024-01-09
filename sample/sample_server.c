@@ -80,6 +80,7 @@ typedef struct st_sample_server_stream_ctx_t {
     unsigned int is_name_read : 1;
     unsigned int is_stream_reset : 1;
     unsigned int is_stream_finished : 1;
+    time_t stop_sending;
 } sample_server_stream_ctx_t;
 
 typedef struct st_sample_server_ctx_t {
@@ -124,39 +125,49 @@ int sample_server_open_stream(sample_server_ctx_t* server_ctx, sample_server_str
         ret = PICOQUIC_SAMPLE_NAME_TOO_LONG_ERROR;
     }
     else {
-        /* Verify that the default path is empty of terminates with "/" or "\" depending on OS,
-         * and format the file path */
-        size_t dir_len = server_ctx->default_dir_len;
-        if (dir_len > 0) {
-            memcpy(file_path, server_ctx->default_dir, dir_len);
-            if (file_path[dir_len - 1] != PICOQUIC_FILE_SEPARATOR[0]) {
-                file_path[dir_len] = PICOQUIC_FILE_SEPARATOR[0];
-                dir_len++;
+        // send timepan
+        char * temp;
+        long int li = strtol(stream_ctx->file_name, &temp, 10);
+        if (temp[0] == 's' && li != 0) {
+            stream_ctx->stop_sending = time(NULL) + li;
+        } else
+        {
+            /* Verify that the default path is empty of terminates with "/" or "\" depending on OS,
+             * and format the file path */
+            size_t dir_len = server_ctx->default_dir_len;
+            if (dir_len > 0) {
+                memcpy(file_path, server_ctx->default_dir, dir_len);
+                if (file_path[dir_len - 1] != PICOQUIC_FILE_SEPARATOR[0]) {
+                    file_path[dir_len] = PICOQUIC_FILE_SEPARATOR[0];
+                    dir_len++;
+                }
             }
-        }
-        memcpy(file_path + dir_len, stream_ctx->file_name, stream_ctx->name_length);
-        file_path[dir_len + stream_ctx->name_length] = 0;
+            memcpy(file_path + dir_len, stream_ctx->file_name, stream_ctx->name_length);
+            // send timespan, read timespan if ms postfix
 
-        /* Use the picoquic_file_open API for portability to Windows and Linux */
-        stream_ctx->F = picoquic_file_open(file_path, "rb");
+            file_path[dir_len + stream_ctx->name_length] = 0;
 
-        if (stream_ctx->F == NULL) {
-            ret = PICOQUIC_SAMPLE_NO_SUCH_FILE_ERROR;
-        }
-        else {
-            /* Assess the file size, as this is useful for data planning */
-            long sz;
-            fseek(stream_ctx->F, 0, SEEK_END);
-            sz = ftell(stream_ctx->F);
+            /* Use the picoquic_file_open API for portability to Windows and Linux */
+            stream_ctx->F = picoquic_file_open(file_path, "rb");
 
-            if (sz <= 0) {
-                stream_ctx->F = picoquic_file_close(stream_ctx->F);
-                ret = PICOQUIC_SAMPLE_FILE_READ_ERROR;
+            if (stream_ctx->F == NULL) {
+                ret = PICOQUIC_SAMPLE_NO_SUCH_FILE_ERROR;
             }
             else {
-                stream_ctx->file_length = (size_t)sz;
-                fseek(stream_ctx->F, 0, SEEK_SET);
-                ret = 0;
+                /* Assess the file size, as this is useful for data planning */
+                long sz;
+                fseek(stream_ctx->F, 0, SEEK_END);
+                sz = ftell(stream_ctx->F);
+
+                if (sz <= 0) {
+                    stream_ctx->F = picoquic_file_close(stream_ctx->F);
+                    ret = PICOQUIC_SAMPLE_FILE_READ_ERROR;
+                }
+                else {
+                    stream_ctx->file_length = (size_t)sz;
+                    fseek(stream_ctx->F, 0, SEEK_SET);
+                    ret = 0;
+                }
             }
         }
     }
@@ -298,30 +309,53 @@ int sample_server_callback(picoquic_cnx_t* cnx,
             if (stream_ctx == NULL) {
                 /* This should never happen */
             }
-            else if (stream_ctx->F == NULL) {
+            else if (stream_ctx->F == NULL && stream_ctx->stop_sending == -1) {
                 /* Error, asking for data after end of file */
             }
             else {
                 /* Implement the zero copy callback */
-                size_t available = stream_ctx->file_length - stream_ctx->file_sent;
+                size_t available;
+                if (stream_ctx->stop_sending == -1)
+                {
+                    available = stream_ctx->file_length - stream_ctx->file_sent;
+                } else {
+                    // send timespan; send max bytes possible
+                    available = length;
+                }
                 int is_fin = 1;
                 uint8_t* buffer;
 
-                if (available > length) {
-                    available = length;
-                    is_fin = 0;
+                if (stream_ctx->stop_sending == -1)
+                {
+                    if (available > length) {
+                        available = length;
+                        is_fin = 0;
+                    }
+                } else
+                {
+                    // send timespan; set fin flag when timespan is over
+                    if (time(NULL) < stream_ctx->stop_sending)
+                    {
+                        is_fin = 0;
+                    }
                 }
-                
+
                 buffer = picoquic_provide_stream_data_buffer(bytes, available, is_fin, !is_fin);
                 if (buffer != NULL) {
-                    size_t nb_read = fread(buffer, 1, available, stream_ctx->F);
+                    if (stream_ctx->stop_sending == -1)
+                    {
+                        size_t nb_read = fread(buffer, 1, available, stream_ctx->F);
 
-                    if (nb_read != available) {
-                        /* Error while reading the file */
-                        sample_server_delete_stream_context(server_ctx, stream_ctx);
-                        (void)picoquic_reset_stream(cnx, stream_id, PICOQUIC_SAMPLE_FILE_READ_ERROR);
-                    }
-                    else {
+                        if (nb_read != available) {
+                            /* Error while reading the file */
+                            sample_server_delete_stream_context(server_ctx, stream_ctx);
+                            (void)picoquic_reset_stream(cnx, stream_id, PICOQUIC_SAMPLE_FILE_READ_ERROR);
+                        }
+                        else {
+                            stream_ctx->file_sent += available;
+                        }
+                    } else {
+                        // send timespan; send max bytes possible
                         stream_ctx->file_sent += available;
                     }
                 }
