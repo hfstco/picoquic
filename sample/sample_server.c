@@ -334,7 +334,7 @@ int sample_server_callback(picoquic_cnx_t* cnx,
                 } else
                 {
                     // send timespan; set fin flag when timespan is over
-                    if (time(NULL) < stream_ctx->stop_sending)
+                    if (time(NULL) <= stream_ctx->stop_sending)
                     {
                         is_fin = 0;
                     }
