@@ -45,6 +45,7 @@
 #include <picosocks.h>
 #include <picoquic_utils.h>
 #include <autoqlog.h>
+#include <sys/time.h>
 #include "picoquic_sample.h"
 #include "picoquic_packet_loop.h"
 
@@ -80,7 +81,7 @@ typedef struct st_sample_server_stream_ctx_t {
     unsigned int is_name_read : 1;
     unsigned int is_stream_reset : 1;
     unsigned int is_stream_finished : 1;
-    time_t stop_sending;
+    struct timeval stop_sending;
 } sample_server_stream_ctx_t;
 
 typedef struct st_sample_server_ctx_t {
@@ -120,6 +121,9 @@ int sample_server_open_stream(sample_server_ctx_t* server_ctx, sample_server_str
     /* Keep track that the full file name was acquired. */
     stream_ctx->is_name_read = 1;
 
+    // init timespam_sample
+    stream_ctx->stop_sending.tv_sec = (time_t)(-1);
+
     /* Verify the name, then try to open the file */
     if (server_ctx->default_dir_len + stream_ctx->name_length + 1 > sizeof(file_path)) {
         ret = PICOQUIC_SAMPLE_NAME_TOO_LONG_ERROR;
@@ -129,7 +133,8 @@ int sample_server_open_stream(sample_server_ctx_t* server_ctx, sample_server_str
         char * temp;
         long int li = strtol(stream_ctx->file_name, &temp, 10);
         if (temp[0] == 's' && li != 0) {
-            stream_ctx->stop_sending = time(NULL) + li;
+            gettimeofday(&stream_ctx->stop_sending, NULL);
+            stream_ctx->stop_sending.tv_sec += li;
         } else
         {
             /* Verify that the default path is empty of terminates with "/" or "\" depending on OS,
@@ -309,13 +314,13 @@ int sample_server_callback(picoquic_cnx_t* cnx,
             if (stream_ctx == NULL) {
                 /* This should never happen */
             }
-            else if (stream_ctx->F == NULL && stream_ctx->stop_sending == -1) {
+            else if (stream_ctx->F == NULL && stream_ctx->stop_sending.tv_sec == -1) {
                 /* Error, asking for data after end of file */
             }
             else {
                 /* Implement the zero copy callback */
                 size_t available;
-                if (stream_ctx->stop_sending == -1)
+                if (stream_ctx->stop_sending.tv_sec == -1)
                 {
                     available = stream_ctx->file_length - stream_ctx->file_sent;
                 } else {
@@ -325,7 +330,7 @@ int sample_server_callback(picoquic_cnx_t* cnx,
                 int is_fin = 1;
                 uint8_t* buffer;
 
-                if (stream_ctx->stop_sending == -1)
+                if (stream_ctx->stop_sending.tv_sec == -1)
                 {
                     if (available > length) {
                         available = length;
@@ -333,8 +338,10 @@ int sample_server_callback(picoquic_cnx_t* cnx,
                     }
                 } else
                 {
+                    struct timeval now;
+                    gettimeofday(&now, NULL);
                     // send timespan; set fin flag when timespan is over
-                    if (time(NULL) <= stream_ctx->stop_sending)
+                    if (timercmp(&now, &stream_ctx->stop_sending, <))
                     {
                         is_fin = 0;
                     }
@@ -342,7 +349,7 @@ int sample_server_callback(picoquic_cnx_t* cnx,
 
                 buffer = picoquic_provide_stream_data_buffer(bytes, available, is_fin, !is_fin);
                 if (buffer != NULL) {
-                    if (stream_ctx->stop_sending == -1)
+                    if (stream_ctx->stop_sending.tv_sec == -1)
                     {
                         size_t nb_read = fread(buffer, 1, available, stream_ctx->F);
 
