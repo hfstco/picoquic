@@ -502,6 +502,8 @@ int picoquic_check_port_blocked(uint16_t port);
 int picoquic_check_addr_blocked(const struct sockaddr* addr_from);
 void picoquic_disable_port_blocking(picoquic_quic_t* quic, int is_port_blocking_disabled);
 
+    void picoquic_set_hystart_plus_plus(picoquic_quic_t* quic, int do_hystart_plus_plus); /* TODO move anywhere else */
+
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t max_nb_connections,
     char const* cert_file_name, char const* key_file_name, char const * cert_root_file_name,
@@ -1391,6 +1393,7 @@ int picoquic_cnx_is_still_logging(picoquic_cnx_t* cnx);
 
 typedef enum {
     picoquic_congestion_notification_acknowledgement,
+    picoquic_congestion_notification_sent,
     picoquic_congestion_notification_repeat,
     picoquic_congestion_notification_timeout,
     picoquic_congestion_notification_spurious_repeat,

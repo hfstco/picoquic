@@ -43,11 +43,14 @@ typedef struct st_picoquic_cubic_state_t {
     double W_reno;
     uint64_t ssthresh;
     picoquic_min_max_rtt_t rtt_filter;
+    picoquic_hystart_pp_state_t hystart_pp_state;
 } picoquic_cubic_state_t;
 
 static void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
+    memset(&cubic_state->hystart_pp_state, 0, sizeof(picoquic_hystart_pp_state_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
+    picoquic_hystart_pp_reset(&cubic_state->hystart_pp_state);
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
     cubic_state->ssthresh = UINT64_MAX;
     cubic_state->W_last_max = (double)cubic_state->ssthresh / (double)path_x->send_mtu;
@@ -233,29 +236,100 @@ static void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                cubic_update_bandwidth(path_x);
+                //cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                    picoquic_hystart_increase(path_x, &cubic_state->rtt_filter, ack_state->nb_bytes_acknowledged);
-                    /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
-                    if (path_x->cwin >= cubic_state->ssthresh) {
-                        cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
-                        path_x->is_ssthresh_initialized = 1;
-                        picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                    if (path_x->cnx->quic->use_hystart_plus_plus) {
+                        path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state);
+
+                        picoquic_hystart_pp_test(&cubic_state->hystart_pp_state);
+
+                        /* HyStart++ measures rounds using sequence numbers, as follows:
+                         *      - Define windowEnd as a sequence number initialized to SND.NXT.
+                         *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
+                         */
+                        /* Check if we reached the end of the round. */
+                        if (picoquic_cc_get_ack_number(cnx, path_x) >= cubic_state->hystart_pp_state.window_end) {
+                            /* Reset windowEnd, triggers new round at next packet sent. */
+                            printf("current_ack_number=%" PRIu64 ", window_end=%" PRIu64 "\n",
+                                picoquic_cc_get_ack_number(cnx, path_x), cubic_state->hystart_pp_state.window_end);
+                            cubic_state->hystart_pp_state.window_end = UINT64_MAX;
+
+                            /* If CSS round ends. */
+                            if (cubic_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
+                                printf("HYSTART | CSS ROUND END\n");
+                                printf("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
+                                    path_x->cwin, cubic_state->hystart_pp_state.current_round.current_round_min_rtt,
+                                    cubic_state->hystart_pp_state.current_round.last_round_min_rtt,
+                                    cubic_state->hystart_pp_state.current_round.rtt_sample_count);
+                                cubic_state->hystart_pp_state.css_round_count++;
+
+                                /* CSS lasts at most CSS_ROUNDS rounds. If the transition into CSS happens in the middle of
+                                 * a round, that partial round counts towards the limit.
+                                 *      ssthresh = cwnd
+                                 */
+                                if (cubic_state->hystart_pp_state.css_round_count >= PICOQUIC_CSS_ROUNDS) {
+                                    printf("HYSTART | EXIT TO CONGESTION AVOIDANCE\n");
+                                    path_x->is_ssthresh_initialized = 1;
+                                    picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                                }
+                            } else {
+                                printf("HYSTART | SS ROUND END\n");
+                                printf("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n", path_x->cwin,
+                                    cubic_state->hystart_pp_state.current_round.current_round_min_rtt,
+                                    cubic_state->hystart_pp_state.current_round.last_round_min_rtt,
+                                    cubic_state->hystart_pp_state.current_round.rtt_sample_count);
+                            }
+                        }
+                    } else {
+                        picoquic_hystart_increase(path_x, &cubic_state->rtt_filter, ack_state->nb_bytes_acknowledged);
+                        /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                        if (path_x->cwin >= cubic_state->ssthresh) {
+                            cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
+                            path_x->is_ssthresh_initialized = 1;
+                            picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                        }
                     }
+                }
+                break;
+            case picoquic_congestion_notification_sent:
+                /* HyStart++ measures rounds using sequence numbers, as follows:
+                 *      - Define windowEnd as a sequence number initialized to SND.NXT.
+                 *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
+                 */
+                if (cnx->quic->use_hystart_plus_plus && cubic_state->hystart_pp_state.window_end == UINT64_MAX) {
+                    printf("HYSTART | ROUND START\n");
+                    printf("window_end=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
+                    /* nb_bytes_acknowledged is current sent packet_number here. TODO modify ack_state to support congestion_notification_sent */
+                    cubic_state->hystart_pp_state.window_end = ack_state->nb_bytes_acknowledged;
+                    picoquic_hystart_pp_start_round(&cubic_state->hystart_pp_state.current_round);
                 }
                 break;
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_ecn_ec:
             case picoquic_congestion_notification_timeout:
-                /* For compatibility with Linux-TCP deployments, we implement a filter so
-                 * Cubic will only back off after repeated losses, not just after a single loss.
-                 */
-                if ((notification == picoquic_congestion_notification_ecn_ec ||
-                    picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
-                    (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
-                        cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
+                if (cnx->quic->use_hystart_plus_plus) {
+                    /* If loss or Explicit Congestion Notification (ECN) marking is observed at any time during standard
+                     * slow start or CSS, enter congestion avoidance by setting the ssthresh to the current cwnd.
+                     *      ssthresh = cwnd
+                     */
+                    cubic_state->ssthresh = path_x->cwin;
+                    cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
+                    cubic_state->W_last_max = cubic_state->W_max;
+                    cubic_state->W_reno = ((double)path_x->cwin);
                     path_x->is_ssthresh_initialized = 1;
-                    picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
+                    picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                    /* TODO check if code below also works for hystart++ */
+                } else {
+                    /* For compatibility with Linux-TCP deployments, we implement a filter so
+                     * Cubic will only back off after repeated losses, not just after a single loss.
+                     */
+                    if ((notification == picoquic_congestion_notification_ecn_ec ||
+                        picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
+                        (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
+                            cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
+                        path_x->is_ssthresh_initialized = 1;
+                        picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
+                    }
                 }
                 break;
             case picoquic_congestion_notification_spurious_repeat:

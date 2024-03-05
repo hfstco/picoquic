@@ -263,6 +263,8 @@ int satellite_small_test();
 int satellite_small_up_test();
 int satellite_cubic_test();
 int satellite_cubic_loss_test();
+int satellite_newreno_test();
+int satellite_newreno_loss_test();
 int bdp_basic_test();
 int bdp_reno_test();
 int bdp_cubic_test();
@@ -512,6 +514,7 @@ int picowt_baton_multi_test();
 int picowt_baton_random_test();
 int picowt_baton_wrong_test();
 int picowt_baton_uri_test();
+int hystart_pp_test();
 
 int cplusplustest();
 

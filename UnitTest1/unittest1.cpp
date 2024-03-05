@@ -2938,6 +2938,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+	    TEST_METHOD(hystart_pp) {
+            int ret = hystart_pp_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(cplusplus) {
             int ret = cplusplustest();
 

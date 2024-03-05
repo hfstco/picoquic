@@ -118,6 +118,20 @@ namespace PerfAndStressTest
             Assert::AreEqual(ret, 0);
         }
 
+	    TEST_METHOD(satellite_newreno)
+        {
+            int ret = satellite_newreno_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(satellite_newreno_loss)
+        {
+            int ret = satellite_newreno_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(bdp_basic)
         {
             int ret = bdp_basic_test();

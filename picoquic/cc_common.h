@@ -62,6 +62,39 @@ int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measur
 
 void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* rtt_filter, uint64_t nb_delivered);
 
+/* Hystart++ */
+
+#define PICOQUIC_MIN_RTT_THRESH 4000 /* msec */
+#define PICOQUIC_MAX_RTT_THRESH 16000 /* msec */
+#define PICOQUIC_MIN_RTT_DIVISOR 8
+#define PICOQUIC_N_RTT_SAMPLE 8
+#define PICOQUIC_CSS_GROWTH_DIVISOR 4
+#define PICOQUIC_CSS_ROUNDS 5
+#define PICOQUIC_L UINT64_MAX /* infinity if paced, L = 8 if non-paced */
+
+    typedef struct st_picoquic_hystart_pp_round_t {
+        uint64_t last_round_min_rtt;
+        uint64_t current_round_min_rtt;
+        //uint64_t curr_rtt; /* TODO check if needed */
+        uint64_t rtt_sample_count;
+    } picoquic_hystart_pp_round_t;
+
+    typedef struct st_picoquic_hystart_pp_state_t {
+        picoquic_hystart_pp_round_t current_round;
+
+        uint64_t window_end;
+        uint64_t rtt_thresh;
+        uint64_t css_baseline_min_rtt;
+        uint64_t css_round_count;
+    } picoquic_hystart_pp_state_t;
+
+    void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
+
+    void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
+    uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+    void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t* hystart_pp_state);
+
+
 /* Many congestion control algorithms run a parallel version of new reno in order
  * to provide a lower bound estimate of either the congestion window or the
  * the minimal bandwidth. This implementation of new reno does not directly
