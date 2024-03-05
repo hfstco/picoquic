@@ -1138,7 +1138,6 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     if (!packet->is_ack_trap) {
         /* Account for bytes in transit, for congestion control */
         path_x->bytes_in_transit += length;
-        path_x->is_cc_data_updated = 1;
 
         /* Notify congestion control algorithm. */
         picoquic_per_ack_state_t ack_state = { 0 };
