@@ -668,7 +668,7 @@ typedef struct st_picoquic_quic_t {
     unsigned int test_large_server_flight : 1; /* Use TP to ensure server flight is at least 8K */
     unsigned int is_port_blocking_disabled : 1; /* Do not check client port on incoming connections */
     unsigned int are_path_callbacks_enabled : 1; /* Enable path specific callbacks by default */
-    unsigned int use_hystart_plus_plus : 1; /* Use hystart++ instead of hystart. */
+    unsigned int use_hystart_pp : 1; /* Use hystart++ instead of hystart. */
 
     picoquic_stateless_packet_t* pending_stateless_packet;
 

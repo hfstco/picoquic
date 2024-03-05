@@ -233,7 +233,7 @@ static void picoquic_newreno_notify(
                     }
 
                     if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                        if (cnx->quic->use_hystart_plus_plus) {
+                        if (cnx->quic->use_hystart_pp) {
                             path_x->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state);
 
                             picoquic_hystart_pp_test(&nr_state->hystart_pp_state);
@@ -297,7 +297,7 @@ static void picoquic_newreno_notify(
                  *      - Define windowEnd as a sequence number initialized to SND.NXT.
                  *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
                  */
-                if (cnx->quic->use_hystart_plus_plus && nr_state->hystart_pp_state.window_end == UINT64_MAX) {
+                if (cnx->quic->use_hystart_pp && nr_state->hystart_pp_state.window_end == UINT64_MAX) {
                     printf("HYSTART | ROUND START\n");
                     printf("window_end=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
                     /* nb_bytes_acknowledged is current sent packet_number here. TODO modify ack_state to support congestion_notification_sent */

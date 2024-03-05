@@ -345,7 +345,7 @@ int config_test_compare(const picoquic_quic_config_t* expected, const picoquic_q
     ret |= config_test_compare_int("bdp", expected->bdp_frame_option, actual->bdp_frame_option);
     ret |= config_test_compare_int("idle_timeout", expected->idle_timeout, actual->idle_timeout);
     ret |= config_test_compare_uint64("cwin_max", expected->cwin_max, actual->cwin_max);
-    ret |= config_test_compare_int("hystart_plus_plus", expected->hystart_plus_plus, actual->hystart_plus_plus);
+    ret |= config_test_compare_int("hystart_pp", expected->use_hystart_pp, actual->use_hystart_pp);
     return ret;
 }
 

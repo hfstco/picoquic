@@ -238,7 +238,7 @@ static void picoquic_cubic_notify(
             case picoquic_congestion_notification_acknowledgement:
                 //cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                    if (path_x->cnx->quic->use_hystart_plus_plus) {
+                    if (path_x->cnx->quic->use_hystart_pp) {
                         path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state);
 
                         picoquic_hystart_pp_test(&cubic_state->hystart_pp_state);
@@ -296,7 +296,7 @@ static void picoquic_cubic_notify(
                  *      - Define windowEnd as a sequence number initialized to SND.NXT.
                  *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
                  */
-                if (cnx->quic->use_hystart_plus_plus && cubic_state->hystart_pp_state.window_end == UINT64_MAX) {
+                if (cnx->quic->use_hystart_pp && cubic_state->hystart_pp_state.window_end == UINT64_MAX) {
                     printf("HYSTART | ROUND START\n");
                     printf("window_end=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
                     /* nb_bytes_acknowledged is current sent packet_number here. TODO modify ack_state to support congestion_notification_sent */
@@ -307,7 +307,7 @@ static void picoquic_cubic_notify(
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_ecn_ec:
             case picoquic_congestion_notification_timeout:
-                if (cnx->quic->use_hystart_plus_plus) {
+                if (cnx->quic->use_hystart_pp) {
                     /* If loss or Explicit Congestion Notification (ECN) marking is observed at any time during standard
                      * slow start or CSS, enter congestion avoidance by setting the ssthresh to the current cwnd.
                      *      ssthresh = cwnd

@@ -95,7 +95,7 @@ static option_table_line_t option_table[] = {
     { picoquic_option_No_GSO, '0', "no_gso", 0, "", "Do not use UDP GSO or equivalent" },
     { picoquic_option_BDP_frame, 'j', "bdp", 1, "number", "use bdp extension frame(1) or don\'t (0). Default=0" },
     { picoquic_option_CWIN_MAX, 'W', "cwin_max", 1, "bytes", "Max value for CWIN. Default=UINT64_MAX"},
-    { picoquic_option_HYSTART_PLUS_PLUS, 'H', "hystart_plus_plus", 0, "", "Enable hystart++."},
+    { picoquic_option_HYSTART_PP, 'H', "hystart_pp", 0, "", "Enable hystart++."},
     { picoquic_option_HELP, 'h', "help", 0, "", "This help message" }
 };
 
@@ -495,8 +495,8 @@ static int config_set_option(option_table_line_t* option_desc, option_param_t* p
         }
         break;
     }
-    case picoquic_option_HYSTART_PLUS_PLUS:{
-        config->hystart_plus_plus = 1;
+    case picoquic_option_HYSTART_PP:{
+        config->use_hystart_pp = 1;
         break;
     }
     case picoquic_option_HELP:
@@ -777,6 +777,8 @@ picoquic_quic_t* picoquic_create_and_configure(picoquic_quic_config_t* config,
         }
 
         picoquic_set_default_congestion_algorithm(quic, cc_algo);
+
+        picoquic_set_hystart_pp(quic, config->use_hystart_pp);
 
         picoquic_set_default_spinbit_policy(quic, config->spinbit_policy);
         picoquic_set_default_lossbit_policy(quic, config->lossbit_policy);

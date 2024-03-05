@@ -502,7 +502,7 @@ int picoquic_check_port_blocked(uint16_t port);
 int picoquic_check_addr_blocked(const struct sockaddr* addr_from);
 void picoquic_disable_port_blocking(picoquic_quic_t* quic, int is_port_blocking_disabled);
 
-    void picoquic_set_hystart_plus_plus(picoquic_quic_t* quic, int do_hystart_plus_plus); /* TODO move anywhere else */
+    void picoquic_set_hystart_pp(picoquic_quic_t* quic, int do_hystart_pp); /* TODO move anywhere else */
 
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t max_nb_connections,
