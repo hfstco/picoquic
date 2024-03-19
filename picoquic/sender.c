@@ -3565,11 +3565,13 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t* path_x, 
     int more_data = 0;
     int ack_sent = 0;
     int is_challenge_padding_needed = 0;
-    int is_nominal_ack_path = (cnx->is_multipath_enabled || cnx->is_simple_multipath_enabled) ?
-        path_x->is_nominal_ack_path : path_x == cnx->path[0];
+    int is_nominal_ack_path = (cnx->is_multipath_enabled || cnx->is_simple_multipath_enabled || cnx->is_unique_path_id_enabled) ?
+        (path_x->is_nominal_ack_path || cnx->nb_paths == 1) : path_x == cnx->path[0];
 
     picoquic_packet_context_t* pkt_ctx = (cnx->is_multipath_enabled) ?
-        &path_x->p_remote_cnxid->pkt_ctx : &cnx->pkt_ctx[picoquic_packet_context_application];
+        &path_x->p_remote_cnxid->pkt_ctx : ( (cnx->is_unique_path_id_enabled) ?
+        &path_x->pkt_ctx :
+        &cnx->pkt_ctx[picoquic_packet_context_application]);
 
     /* Check whether to insert a hole in the sequence of packets */
     if (pkt_ctx->send_sequence >= pkt_ctx->next_sequence_hole) {
@@ -4201,7 +4203,7 @@ static int picoquic_select_next_path_mp(picoquic_cnx_t* cnx, uint64_t current_ti
             continue;
         }
         else if (cnx->path[i]->challenge_failed) {
-            picoquic_demote_path(cnx, i, current_time);
+            picoquic_demote_path(cnx, i, current_time, 0, NULL);
             continue;
         }
         else
@@ -4348,7 +4350,12 @@ static int picoquic_select_next_path_mp(picoquic_cnx_t* cnx, uint64_t current_ti
         }
         path_id = 0;
     }
-
+    if (cnx->path[path_id]->path_is_standby && challenge_path != path_id) {
+        /* Set the selected path to available if it was standby. Selecting a standby
+         * path means that the available path was of lower quality, the only exception
+         * being if the selection was due to a pending challenge. */
+        picoquic_set_path_status(cnx, cnx->path[path_id]->unique_path_id, picoquic_path_status_available);
+    }
     cnx->path[path_id]->selected++;
     picoquic_set_path_addresses(cnx, path_id, is_nat, p_addr_to, p_addr_from, if_index);
 
@@ -4370,7 +4377,7 @@ static int picoquic_select_next_path(picoquic_cnx_t * cnx, uint64_t current_time
             continue;
         }
         else if (cnx->path[i]->challenge_failed) {
-            picoquic_demote_path(cnx, i, current_time);
+            picoquic_demote_path(cnx, i, current_time, 0, NULL);
             continue;
         }
         else if (cnx->path[i]->challenge_verified && cnx->cnx_state == picoquic_state_ready) {
