@@ -31,6 +31,16 @@ extern "C" {
 #define PICOQUIC_SMOOTHED_LOSS_FACTOR (1.0/16.0)
 #define PICOQUIC_SMOOTHED_LOSS_THRESHOLD (0.15)
 
+#define CC_DEBUG_PRINTF(path_x, fmt, ...) \
+    printf("\033[0;32m%-15" PRIu64 "%-15" PRIu64 "%-7s" fmt "\033[0m", picoquic_get_quic_time(path_x->cnx->quic), \
+        picoquic_get_quic_time(path_x->cnx->quic) - picoquic_get_cnx_start_time(path_x->cnx), \
+        (path_x->cnx->client_mode) ? "CLIENT" : "SERVER", ##__VA_ARGS__); \
+    fflush(stdout)
+
+#define CC_DEBUG_DUMP(fmt, ...) \
+    printf("\033[0;37m%37s" fmt "\033[0m", "", ##__VA_ARGS__); \
+    fflush(stdout)
+
 typedef struct st_picoquic_min_max_rtt_t {
     uint64_t last_rtt_sample_time;
     uint64_t rtt_filtered_min;
@@ -64,35 +74,46 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
 
 /* Hystart++ */
 
-#define PICOQUIC_MIN_RTT_THRESH 4000 /* msec */
-#define PICOQUIC_MAX_RTT_THRESH 16000 /* msec */
-#define PICOQUIC_MIN_RTT_DIVISOR 8
-#define PICOQUIC_N_RTT_SAMPLE 8
-#define PICOQUIC_CSS_GROWTH_DIVISOR 4
-#define PICOQUIC_CSS_ROUNDS 5
-#define PICOQUIC_L UINT64_MAX /* infinity if paced, L = 8 if non-paced */
+/* It is RECOMMENDED that a HyStart++ implementation use the following constants: */
+/* MIN_RTT_THRESH = 4 msec
+ * MAX_RTT_THRESH = 16 msec
+ * MIN_RTT_DIVISOR = 8
+ * N_RTT_SAMPLE = 8
+ * CSS_GROWTH_DIVISOR = 4
+ * CSS_ROUNDS = 5
+ * L = infinity if paced, L = 8 if non-paced
+ */
+/* Take a look at the draft for more information. */
+#define PICOQUIC_HYSTART_PP_MIN_RTT_THRESH 4000 /* msec */
+#define PICOQUIC_HYSTART_PP_MAX_RTT_THRESH 16000 /* msec */
+#define PICOQUIC_HYSTART_PP_MIN_RTT_DIVISOR 8
+#define PICOQUIC_HYSTART_PP_N_RTT_SAMPLE 8
+#define PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR 4
+#define PICOQUIC_HYSTART_PP_CSS_ROUNDS 5
+#define PICOQUIC_HYSTART_PP_L UINT64_MAX /* infinity if paced, L = 8 if non-paced */
 
-    typedef struct st_picoquic_hystart_pp_round_t {
-        uint64_t last_round_min_rtt;
-        uint64_t current_round_min_rtt;
-        //uint64_t curr_rtt; /* TODO check if needed */
-        uint64_t rtt_sample_count;
-    } picoquic_hystart_pp_round_t;
+typedef struct st_picoquic_hystart_pp_round_t {
+    uint64_t last_round_min_rtt;
+    uint64_t current_round_min_rtt;
+    //uint64_t curr_rtt; /* TODO check if needed */
+    uint64_t rtt_sample_count;
+} picoquic_hystart_pp_round_t;
 
-    typedef struct st_picoquic_hystart_pp_state_t {
-        picoquic_hystart_pp_round_t current_round;
+typedef struct st_picoquic_hystart_pp_state_t {
+    picoquic_hystart_pp_round_t current_round;
 
-        uint64_t window_end;
-        uint64_t rtt_thresh;
-        uint64_t css_baseline_min_rtt;
-        uint64_t css_round_count;
-    } picoquic_hystart_pp_state_t;
+    uint64_t window_end;
+    uint64_t rtt_thresh;
+    uint64_t css_baseline_min_rtt;
+    uint64_t css_round_count;
+} picoquic_hystart_pp_state_t;
 
-    void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
+void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
 
-    void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
-    uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
-    void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t* hystart_pp_state);
+void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
+uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+
+int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
 
 
 /* Many congestion control algorithms run a parallel version of new reno in order
@@ -114,9 +135,10 @@ typedef struct st_picoquic_newreno_sim_state_t {
     uint64_t ssthresh;
     uint64_t recovery_start;
     uint64_t recovery_sequence;
+    picoquic_hystart_pp_state_t hystart_pp_state;
 } picoquic_newreno_sim_state_t;
 
-void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t* nrss);
+void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t* nrss, picoquic_path_t* path_x);
 
 void picoquic_newreno_sim_notify(
     picoquic_newreno_sim_state_t* nr_state,

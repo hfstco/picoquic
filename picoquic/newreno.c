@@ -33,13 +33,20 @@
  * its entire state in memory.
  */
 
-void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t * nrss)
+void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t * nrss, picoquic_path_t* path_x)
 {
     /* Initialize the state of the congestion control algorithm */
     memset(nrss, 0, sizeof(picoquic_newreno_sim_state_t));
     nrss->alg_state = picoquic_newreno_alg_slow_start;
     nrss->ssthresh = UINT64_MAX;
     nrss->cwin = PICOQUIC_CWIN_INITIAL;
+
+    picoquic_hystart_pp_reset(&nrss->hystart_pp_state);
+    /* Start first round. */
+    CC_DEBUG_PRINTF(path_x, "HYSTART++ | ROUND START\n");
+    CC_DEBUG_DUMP("window_end=%" PRIu64 "\n", path_x->path_packet_number);
+    nrss->hystart_pp_state.window_end = 0;
+    picoquic_hystart_pp_start_round(&nrss->hystart_pp_state.current_round);
 }
 
 /* The recovery state last 1 RTT, during which parameters will be frozen
@@ -100,10 +107,67 @@ void picoquic_newreno_sim_notify(
     case picoquic_congestion_notification_acknowledgement: {
         switch (nr_state->alg_state) {
         case picoquic_newreno_alg_slow_start:
-            nr_state->cwin += ack_state->nb_bytes_acknowledged;
-            /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
-            if (nr_state->cwin >= nr_state->ssthresh) {
-                nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+            if (cnx->quic->use_hystart_pp) {
+                nr_state->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state);
+
+                if(picoquic_hystart_pp_test(&nr_state->hystart_pp_state)) {
+                    CC_DEBUG_PRINTF(path_x, "hystart_test");
+                }
+
+                /* HyStart++ measures rounds using sequence numbers, as follows:
+                 *      - Define windowEnd as a sequence number initialized to SND.NXT.
+                 *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
+                 */
+                /* Check if we reached the end of the round. */
+                if (picoquic_cc_get_ack_number(cnx, path_x) >= nr_state->hystart_pp_state.window_end) {
+                    /* Reset windowEnd, triggers to start new round. */
+                    CC_DEBUG_DUMP("current_ack_number=%" PRIu64 ", window_end=%" PRIu64 "\n",
+                        picoquic_cc_get_ack_number(cnx, path_x), nr_state->hystart_pp_state.window_end);
+
+                    /* If CSS round ends. */
+                    if (nr_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
+                        CC_DEBUG_PRINTF(path_x, "HYSTART++ | CSS ROUND END\n");
+                        CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
+                            path_x->cwin, nr_state->hystart_pp_state.current_round.current_round_min_rtt,
+                            nr_state->hystart_pp_state.current_round.last_round_min_rtt,
+                            nr_state->hystart_pp_state.current_round.rtt_sample_count);
+                        nr_state->hystart_pp_state.css_round_count++;
+
+                        /* CSS lasts at most CSS_ROUNDS rounds. If the transition into CSS happens in the middle of
+                         * a round, that partial round counts towards the limit.
+                         *      ssthresh = cwnd
+                         */
+                        if (nr_state->hystart_pp_state.css_round_count >= PICOQUIC_HYSTART_PP_CSS_ROUNDS) {
+                            CC_DEBUG_PRINTF(path_x, "HYSTART++ | EXIT TO CONGESTION AVOIDANCE\n");
+                            nr_state->ssthresh = path_x->cwin;
+                            path_x->is_ssthresh_initialized = 1;
+                            nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+                            break;
+                        }
+                    } else {
+                        CC_DEBUG_PRINTF(path_x, "HYSTART++ | SS ROUND END\n");
+                        CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n", path_x->cwin,
+                            nr_state->hystart_pp_state.current_round.current_round_min_rtt,
+                            nr_state->hystart_pp_state.current_round.last_round_min_rtt,
+                            nr_state->hystart_pp_state.current_round.rtt_sample_count);
+                    }
+
+                    /* Start new round. */
+                    /* HyStart++ measures rounds using sequence numbers, as follows:
+                     *      - Define windowEnd as a sequence number initialized to SND.NXT.
+                     *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
+                     */
+                    CC_DEBUG_PRINTF(path_x, "HYSTART++ | %s ROUND START\n", (nr_state->hystart_pp_state.css_baseline_min_rtt == UINT64_MAX) ? "SS" : "CSS");
+                    CC_DEBUG_DUMP("window_end=%" PRIu64 "\n", path_x->path_packet_number + 1);
+                    nr_state->hystart_pp_state.window_end = path_x->path_packet_number + 1;
+                    picoquic_hystart_pp_start_round(&nr_state->hystart_pp_state.current_round);
+                }
+            } else {
+                nr_state->cwin += ack_state->nb_bytes_acknowledged;
+                /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                if (nr_state->cwin >= nr_state->ssthresh) {
+                    nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+                }
             }
             break;
         case picoquic_newreno_alg_congestion_avoidance:
@@ -153,7 +217,7 @@ void picoquic_newreno_sim_notify(
         }
         break;
     case picoquic_congestion_notification_reset:
-        picoquic_newreno_sim_reset(nr_state);
+        picoquic_newreno_sim_reset(nr_state, path_x);
         break;
     case picoquic_congestion_notification_seed_cwin:
         picoquic_newreno_sim_seed_cwin(nr_state, path_x, ack_state->nb_bytes_acknowledged);
@@ -171,14 +235,12 @@ void picoquic_newreno_sim_notify(
 typedef struct st_picoquic_newreno_state_t {
     picoquic_newreno_sim_state_t nrss;
     picoquic_min_max_rtt_t rtt_filter;
-    picoquic_hystart_pp_state_t hystart_pp_state;
 } picoquic_newreno_state_t;
 
 static void picoquic_newreno_reset(picoquic_newreno_state_t* nr_state, picoquic_path_t* path_x)
 {
     memset(nr_state, 0, sizeof(picoquic_newreno_state_t));
-    picoquic_newreno_sim_reset(&nr_state->nrss);
-    picoquic_hystart_pp_reset(&nr_state->hystart_pp_state);
+    picoquic_newreno_sim_reset(&nr_state->nrss, path_x);
     path_x->cwin = nr_state->nrss.cwin;
 }
 
@@ -222,64 +284,9 @@ static void picoquic_newreno_notify(
         case picoquic_congestion_notification_acknowledgement:
             switch (nr_state->nrss.alg_state) {
                 case picoquic_newreno_alg_slow_start:
-                    if (nr_state->nrss.alg_state == UINT64_MAX) {
-                        /* RTT measurements will happen before acknowledgement is signalled */
-                        uint64_t max_win = path_x->peak_bandwidth_estimate * path_x->smoothed_rtt / 1000000;
-                        uint64_t min_win = max_win /= 2;
-                        if (nr_state->nrss.cwin < min_win) {
-                            nr_state->nrss.cwin = min_win;
-                            path_x->cwin = min_win;
-                        }
-                    }
-
                     if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                        if (cnx->quic->use_hystart_pp) {
-                            path_x->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state);
-
-                            picoquic_hystart_pp_test(&nr_state->hystart_pp_state);
-
-                            /* HyStart++ measures rounds using sequence numbers, as follows:
-                             *      - Define windowEnd as a sequence number initialized to SND.NXT.
-                             *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
-                             */
-                            /* Check if we reached the end of the round. */
-                            if (picoquic_cc_get_ack_number(cnx, path_x) >= nr_state->hystart_pp_state.window_end) {
-                                /* Reset windowEnd, triggers new round at next packet sent. */
-                                printf("current_ack_number=%" PRIu64 ", window_end=%" PRIu64 "\n",
-                                    picoquic_cc_get_ack_number(cnx, path_x), nr_state->hystart_pp_state.window_end);
-                                nr_state->hystart_pp_state.window_end = UINT64_MAX;
-
-                                /* If CSS round ends. */
-                                if (nr_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
-                                    printf("HYSTART | CSS ROUND END\n");
-                                    printf("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
-                                        path_x->cwin, nr_state->hystart_pp_state.current_round.current_round_min_rtt,
-                                        nr_state->hystart_pp_state.current_round.last_round_min_rtt,
-                                        nr_state->hystart_pp_state.current_round.rtt_sample_count);
-                                    nr_state->hystart_pp_state.css_round_count++;
-
-                                    /* CSS lasts at most CSS_ROUNDS rounds. If the transition into CSS happens in the middle of
-                                     * a round, that partial round counts towards the limit.
-                                     *      ssthresh = cwnd
-                                     */
-                                    if (nr_state->hystart_pp_state.css_round_count >= PICOQUIC_CSS_ROUNDS) {
-                                        printf("HYSTART | EXIT TO CONGESTION AVOIDANCE\n");
-                                        path_x->is_ssthresh_initialized = 1;
-                                        nr_state->nrss.ssthresh = path_x->cwin;
-                                        nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
-                                    }
-                                } else {
-                                    printf("HYSTART | SS ROUND END\n");
-                                    printf("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n", path_x->cwin,
-                                        nr_state->hystart_pp_state.current_round.current_round_min_rtt,
-                                        nr_state->hystart_pp_state.current_round.last_round_min_rtt,
-                                        nr_state->hystart_pp_state.current_round.rtt_sample_count);
-                                }
-                            }
-                        } else {
-                            picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
-                            path_x->cwin = nr_state->nrss.cwin;
-                        }
+                        picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
+                        path_x->cwin = nr_state->nrss.cwin;
                     }
                     break;
                 case picoquic_newreno_alg_congestion_avoidance:
@@ -291,19 +298,6 @@ static void picoquic_newreno_notify(
                 default:
                     break;
             }
-            break;
-        case picoquic_congestion_notification_sent:
-            /* HyStart++ measures rounds using sequence numbers, as follows:
-                 *      - Define windowEnd as a sequence number initialized to SND.NXT.
-                 *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
-                 */
-                if (cnx->quic->use_hystart_pp && nr_state->hystart_pp_state.window_end == UINT64_MAX) {
-                    printf("HYSTART | ROUND START\n");
-                    printf("window_end=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
-                    /* nb_bytes_acknowledged is current sent packet_number here. TODO modify ack_state to support congestion_notification_sent */
-                    nr_state->hystart_pp_state.window_end = ack_state->nb_bytes_acknowledged;
-                    picoquic_hystart_pp_start_round(&nr_state->hystart_pp_state.current_round);
-                }
             break;
         case picoquic_congestion_notification_seed_cwin:
         case picoquic_congestion_notification_ecn_ec:
@@ -319,33 +313,35 @@ static void picoquic_newreno_notify(
             break;
         case picoquic_congestion_notification_rtt_measurement:
             /* Using RTT increases as signal to get out of initial slow start */
-            if (nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
-                nr_state->nrss.ssthresh == UINT64_MAX){
+            if (!cnx->quic->use_hystart_pp) {
+                if (nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
+                    nr_state->nrss.ssthresh == UINT64_MAX){
 
-                if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT) {
-                    uint64_t min_win;
+                    if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT) {
+                        uint64_t min_win;
 
-                    if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                        min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
+                        if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
+                            min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
+                        }
+                        else {
+                            /* Increase initial CWIN for long delay links. */
+                            min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
+                        }
+                        if (min_win > nr_state->nrss.cwin) {
+                            nr_state->nrss.cwin = min_win;
+                            path_x->cwin = min_win;
+                        }
                     }
-                    else {
-                        /* Increase initial CWIN for long delay links. */
-                        min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-                    if (min_win > nr_state->nrss.cwin) {
-                        nr_state->nrss.cwin = min_win;
-                        path_x->cwin = min_win;
-                    }
-                }
 
-                if (picoquic_hystart_test(&nr_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                    cnx->path[0]->pacing_packet_time_microsec, current_time,
-                    cnx->is_time_stamp_enabled)) {
-                    /* RTT increased too much, get out of slow start! */
-                    nr_state->nrss.ssthresh = nr_state->nrss.cwin;
-                    nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
-                    path_x->cwin = nr_state->nrss.cwin;
-                    path_x->is_ssthresh_initialized = 1;
+                    if (picoquic_hystart_test(&nr_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
+                        cnx->path[0]->pacing_packet_time_microsec, current_time,
+                        cnx->is_time_stamp_enabled)) {
+                        /* RTT increased too much, get out of slow start! */
+                        nr_state->nrss.ssthresh = nr_state->nrss.cwin;
+                        nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
+                        path_x->cwin = nr_state->nrss.cwin;
+                        path_x->is_ssthresh_initialized = 1;
+                    }
                 }
             }
             break;

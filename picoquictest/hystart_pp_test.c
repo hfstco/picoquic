@@ -36,7 +36,7 @@ int hystart_pp_increase_in_css_test(picoquic_hystart_pp_state_t* hystart_pp_stat
 
     hystart_pp_state->css_baseline_min_rtt = 100000;
 
-    if (picoquic_hystart_pp_increase(hystart_pp_state, &ack_state) != ack_state.nb_bytes_acknowledged / PICOQUIC_CSS_GROWTH_DIVISOR) {
+    if (picoquic_hystart_pp_increase(hystart_pp_state, &ack_state) != ack_state.nb_bytes_acknowledged / PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR) {
         ret = 1;
     }
 
@@ -48,7 +48,7 @@ int hystart_pp_test_ss_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_s
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
     hystart_pp_state->current_round.current_round_min_rtt = UINT64_MAX;
     hystart_pp_state->current_round.last_round_min_rtt = UINT64_MAX;
 
@@ -60,7 +60,7 @@ int hystart_pp_test_ss_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_s
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
     hystart_pp_state->current_round.current_round_min_rtt = 15000;
     hystart_pp_state->current_round.last_round_min_rtt = UINT64_MAX;
 
@@ -72,7 +72,7 @@ int hystart_pp_test_ss_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_s
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
     hystart_pp_state->current_round.current_round_min_rtt = UINT64_MAX;
     hystart_pp_state->current_round.last_round_min_rtt = 15000;
 
@@ -84,7 +84,7 @@ int hystart_pp_test_ss_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_s
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE - 1;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE - 1;
     hystart_pp_state->current_round.current_round_min_rtt = 15000;
     hystart_pp_state->current_round.last_round_min_rtt = 15000;
 
@@ -102,7 +102,7 @@ int hystart_pp_test_ss_set_rtt_thresh_test(picoquic_hystart_pp_state_t* hystart_
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
     hystart_pp_state->current_round.current_round_min_rtt = 15000;
     hystart_pp_state->current_round.last_round_min_rtt = 15000;
 
@@ -120,7 +120,7 @@ int hystart_pp_test_ss_set_baseline_test(picoquic_hystart_pp_state_t* hystart_pp
 
     picoquic_hystart_pp_reset(hystart_pp_state);
 
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
     hystart_pp_state->current_round.current_round_min_rtt = 20000;
     hystart_pp_state->current_round.last_round_min_rtt = 15000;
 
@@ -139,7 +139,7 @@ int hystart_pp_test_css_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_
     picoquic_hystart_pp_reset(hystart_pp_state);
 
     hystart_pp_state->css_baseline_min_rtt = 20000;
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE - 1;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE - 1;
 
     picoquic_hystart_pp_test(hystart_pp_state);
 
@@ -151,7 +151,7 @@ int hystart_pp_test_css_do_nothing_test(picoquic_hystart_pp_state_t* hystart_pp_
 
     hystart_pp_state->css_baseline_min_rtt = 20000;
     hystart_pp_state->current_round.current_round_min_rtt = 22000;
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
 
     picoquic_hystart_pp_test(hystart_pp_state);
 
@@ -169,7 +169,7 @@ int hystart_pp_test_css_set_baseline_test(picoquic_hystart_pp_state_t* hystart_p
 
     hystart_pp_state->css_baseline_min_rtt = 20000;
     hystart_pp_state->current_round.current_round_min_rtt = 15000;
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
 
     picoquic_hystart_pp_test(hystart_pp_state);
 
@@ -187,7 +187,7 @@ int hystart_pp_test_start_round_test(picoquic_hystart_pp_state_t* hystart_pp_sta
 
     hystart_pp_state->current_round.current_round_min_rtt = 16000;
     hystart_pp_state->current_round.last_round_min_rtt = 15000;
-    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_N_RTT_SAMPLE;
+    hystart_pp_state->current_round.rtt_sample_count = PICOQUIC_HYSTART_PP_N_RTT_SAMPLE;
 
     picoquic_hystart_pp_start_round(&hystart_pp_state->current_round);
 

@@ -1139,15 +1139,6 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
         /* Account for bytes in transit, for congestion control */
         path_x->bytes_in_transit += length;
 
-        /* Notify congestion control algorithm. */
-        picoquic_per_ack_state_t ack_state = { 0 };
-        /* nb_bytes_acknowledged set to packet_number here. */
-        /* TODO maybe refactor ack_state to include packet_number. */
-        ack_state.nb_bytes_acknowledged = packet->path_packet_number;
-        cnx->congestion_alg->alg_notify(cnx, path_x,
-                picoquic_congestion_notification_sent,
-                &ack_state, current_time);
-
         /* Update the pacing data */
         picoquic_update_pacing_after_send(path_x, length, current_time);
     }

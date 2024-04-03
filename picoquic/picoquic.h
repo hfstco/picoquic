@@ -1393,7 +1393,6 @@ int picoquic_cnx_is_still_logging(picoquic_cnx_t* cnx);
 
 typedef enum {
     picoquic_congestion_notification_acknowledgement,
-    picoquic_congestion_notification_sent,
     picoquic_congestion_notification_repeat,
     picoquic_congestion_notification_timeout,
     picoquic_congestion_notification_spurious_repeat,
