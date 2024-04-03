@@ -1537,6 +1537,8 @@ int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, picoqui
 /* Register or update default address and reset secret */
 int picoquic_register_net_secret(picoquic_cnx_t* cnx);
 
+void picoquic_create_local_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t* cnx_id, uint8_t id_length, picoquic_connection_id_t cnx_id_remote);
+
 /* Management of path */
 int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time,
     const struct sockaddr* local_addr, const struct sockaddr* peer_addr);
@@ -1658,6 +1660,12 @@ int picoquic_parse_packet_header(
     picoquic_cnx_t** pcnx,
     int receiving);
 
+size_t picoquic_create_long_header(picoquic_packet_type_enum packet_type, 
+    picoquic_connection_id_t* dest_cnx_id, picoquic_connection_id_t* srce_cnx_id,
+    int do_grease_quic_bit, uint32_t version, int version_index, uint64_t sequence_number,
+    size_t retry_token_length, uint8_t* retry_token,
+    uint8_t* bytes, size_t* pn_offset, size_t* pn_length);
+
 size_t picoquic_create_packet_header(
     picoquic_cnx_t* cnx,
     picoquic_packet_type_enum packet_type,
@@ -1678,9 +1686,13 @@ void picoquic_update_payload_length(
 
 size_t picoquic_get_checksum_length(picoquic_cnx_t* cnx, picoquic_epoch_enum is_cleartext_mode);
 
+void picoquic_protect_packet_header(uint8_t* send_buffer, size_t pn_offset, uint8_t first_mask, void* pn_enc);
+
 uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t pn);
 
 void picoquic_log_pn_dec_trial(picoquic_cnx_t* cnx); /* For debugging potential PN_ENC corruption */
+
+int picoquic_remove_header_protection_inner(uint8_t* bytes, size_t length, uint8_t* decrypted_bytes, picoquic_packet_header* ph, void* pn_enc, unsigned int is_loss_bit_enabled_incoming, uint64_t sack_list_last);
 
 size_t picoquic_pad_to_target_length(uint8_t* bytes, size_t length, size_t target);
 
@@ -1878,8 +1890,21 @@ void picoquic_process_ack_of_frames(picoquic_cnx_t* cnx, picoquic_packet_t* p,
     int is_spurious, uint64_t current_time);
 
 /* Coding and decoding of frames */
+typedef struct st_picoquic_stream_data_buffer_argument_t {
+    uint8_t* bytes; /* Points to the beginning of the encoding of the stream frame */
+    size_t byte_index; /* Current index position after encoding type, stream-id and offset */
+    size_t byte_space; /* Number of bytes available in the packet after the current index */
+    size_t allowed_space; /* Maximum number of bytes that the application is authorized to write */
+    size_t length; /* number of bytes that the application commits to write */
+    int is_fin; /* Whether this is the end of the stream */
+    int is_still_active; /* whether the stream is still considered active after this call */
+    uint8_t* app_buffer; /* buffer provided to the application. */
+} picoquic_stream_data_buffer_argument_t;
 
 int picoquic_is_stream_frame_unlimited(const uint8_t* bytes);
+
+uint8_t* picoquic_format_stream_frame_header(uint8_t* bytes, uint8_t* bytes_max, uint64_t stream_id, uint64_t offset);
+
 int picoquic_parse_stream_header(
     const uint8_t* bytes, size_t bytes_max,
     uint64_t* stream_id, uint64_t* offset, size_t* data_length, int* fin,

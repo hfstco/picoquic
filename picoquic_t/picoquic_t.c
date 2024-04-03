@@ -145,6 +145,7 @@ static const picoquic_test_def_t test_table[] = {
     { "vn_tp", vn_tp_test },
     { "vn_compat", vn_compat_test },
     { "stream_rank", stream_rank_test },
+    { "provide_stream_buffer", provide_stream_buffer_test },
     { "transport_param", transport_param_test },
     { "tls_api_sni", tls_api_sni_test },
     { "tls_api_alpn", tls_api_alpn_test },
@@ -421,6 +422,7 @@ static const picoquic_test_def_t test_table[] = {
     { "mbedtls", mbedtls_test },
     { "mbedtls_crypto", mbedtls_crypto_test },
 #endif
+    { "openssl_cert", openssl_cert_test },
     { "monopath_basic", monopath_basic_test },
     { "monopath_hole", monopath_hole_test },
     { "monopath_rotation", monopath_rotation_test },

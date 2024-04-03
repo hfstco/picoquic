@@ -697,6 +697,13 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(provide_stream_buffer)
+        {
+            int ret = provide_stream_buffer_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
 		TEST_METHOD(transport_param)
 		{
 			int ret = transport_param_test();
@@ -2352,6 +2359,12 @@ namespace UnitTest1
 
         TEST_METHOD(wifi_reno_long) {
             int ret = wifi_reno_long_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(openssl_cert) {
+            int ret = openssl_cert_test();
 
             Assert::AreEqual(ret, 0);
         }
