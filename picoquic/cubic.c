@@ -244,7 +244,7 @@ void picoquic_cubic_notify(
                             }
                         }
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
                         path_x->cwin = cubic_state->cr_state.cwin;
@@ -259,49 +259,46 @@ void picoquic_cubic_notify(
                                         "picoquic_congestion_notification_timeout\n");
                         CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
 
-                    /* For compatibility with Linux-TCP deployments, we implement a filter so
-                     * Cubic will only back off after repeated losses, not just after a single loss.
-                     */
-                        if ((notification == picoquic_congestion_notification_ecn_ec ||
-                             picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification,
-                                                        ack_state->lost_packet_number,
-                                                        PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
-                            (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
-                             cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
-                            /* +------+---------+---------+------------+-----------+------------+
-                             * |Phase |Normal   |Recon.   |Unvalidated |Validating |Safe Retreat|
-                             * +------+---------+---------+------------+-----------+------------+
-                             * |If    |Normal   |Normal   |          Enter         |      -     |
-                             * |loss  |CC method|CC method|          Safe          |            |
-                             * |or    |         |CR is not|          Retreat       |            |
-                             * |ECNCE:|         |allowed  |                        |            |
-                             * +------+---------+---------+------------+-----------+------------+
-                             */
-                            /* TODO The table doesn't specify for unval and validate what the CC method should do in case
-                             * of loss or ECN CE. */
-                            if (cubic_state->cr_state.alg_state == picoquic_cr_alg_recon ||
-                                cubic_state->cr_state.alg_state == picoquic_cr_alg_normal ||
-                                cubic_state->cr_state.alg_state == picoquic_cr_alg_observe) {
-                                cubic_state->ssthresh = path_x->cwin;
-                                cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
+                        /* For compatibility with Linux-TCP deployments, we implement a filter so
+                         * Cubic will only back off after repeated losses, not just after a single loss.
+                         */
+                            if ((notification == picoquic_congestion_notification_ecn_ec ||
+                                 picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
+                                (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
+                                 cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
+                                /* +------+---------+---------+------------+-----------+------------+
+                                 * |Phase |Normal   |Recon.   |Unvalidated |Validating |Safe Retreat|
+                                 * +------+---------+---------+------------+-----------+------------+
+                                 * |If    |Normal   |Normal   |          Enter         |      -     |
+                                 * |loss  |CC method|CC method|          Safe          |            |
+                                 * |or    |         |CR is not|          Retreat       |            |
+                                 * |ECNCE:|         |allowed  |                        |            |
+                                 * +------+---------+---------+------------+-----------+------------+
+                                 */
+                                /* TODO The table doesn't specify for unval and validate what the CC method should do in case
+                                 * of loss or ECN CE. */
+                                if (cubic_state->cr_state.alg_state == picoquic_cr_alg_recon ||
+                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_normal ||
+                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_observe) {
+                                    cubic_state->ssthresh = path_x->cwin;
+                                    cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
 
-                                cubic_state->W_max = (double) path_x->cwin / (double) path_x->send_mtu;
-                                cubic_state->W_last_max = cubic_state->W_max;
-                                cubic_state->W_reno = ((double) path_x->cwin);
+                                    cubic_state->W_max = (double) path_x->cwin / (double) path_x->send_mtu;
+                                    cubic_state->W_last_max = cubic_state->W_max;
+                                    cubic_state->W_reno = ((double) path_x->cwin);
 
-                                path_x->is_ssthresh_initialized = 1;
-                                /* picoquic_cubic_enter_recovery can enter recovery or avoidance. */
-                                picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
+                                    path_x->is_ssthresh_initialized = 1;
+                                    /* picoquic_cubic_enter_recovery can enter recovery or avoidance. */
+                                    picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
 
-                                cubic_state->cr_state.cwin = path_x->cwin;
+                                    cubic_state->cr_state.cwin = path_x->cwin;
+                                }
                             }
-                            //}
 
                             /* Nofify careful resume. */
                             picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
                                                current_time);
                             path_x->cwin = cubic_state->cr_state.cwin;
-
                             break;
                         case picoquic_congestion_notification_spurious_repeat:
                             CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
@@ -369,39 +366,38 @@ void picoquic_cubic_notify(
                                     }
                                 }
                             }
-                        }
 
-                        break;
-                    case picoquic_congestion_notification_cwin_blocked:
-                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
-                                        "picoquic_congestion_notification_cwin_blocked\n");
+                            break;
+                        case picoquic_congestion_notification_cwin_blocked:
+                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                                            "picoquic_congestion_notification_cwin_blocked\n");
 
-                    /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        path_x->cwin = cubic_state->cr_state.cwin;
+                            /* Nofify careful resume. */
+                            picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
+                            path_x->cwin = cubic_state->cr_state.cwin;
 
-                        break;
-                    case picoquic_congestion_notification_reset:
-                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
-                                        "picoquic_congestion_notification_reset\n");
-                        picoquic_cubic_reset(cubic_state, path_x, current_time);
-                        break;
-                    case picoquic_congestion_notification_seed_cwin:
-                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
-                                        "picoquic_congestion_notification_seed_cwin\n");
-                        CC_DEBUG_DUMP("seed_cwin=%" PRIu64 ", seed_rtt=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged,
-                                      ack_state->rtt_measurement);
+                            break;
+                        case picoquic_congestion_notification_reset:
+                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                                            "picoquic_congestion_notification_reset\n");
+                            picoquic_cubic_reset(cubic_state, path_x, current_time);
+                            break;
+                        case picoquic_congestion_notification_seed_cwin:
+                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                                            "picoquic_congestion_notification_seed_cwin\n");
+                            CC_DEBUG_DUMP("seed_cwin=%" PRIu64 ", seed_rtt=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged,
+                                          ack_state->rtt_measurement);
 
-                    /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        path_x->cwin = cubic_state->cr_state.cwin;
+                            /* Nofify careful resume. */
+                            picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
+                            path_x->cwin = cubic_state->cr_state.cwin;
 
-                        break;
-                    default:
-                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
-                                        "default\n");
-                        break;
-                }
+                            break;
+                        default:
+                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                                            "default\n");
+                            break;
+                    }
                 break;
             case picoquic_cubic_alg_recovery:
                 /* If the congestion notification is coming less than 1RTT after start,
@@ -411,19 +407,19 @@ void picoquic_cubic_notify(
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_recovery | "
                                         "picoquic_congestion_notification_acknowledgement\n");
                         CC_DEBUG_DUMP("nb_bytes_acknowledged=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
-                    /* TODO review this part */
-                    /* exit recovery, move to CA or SS, depending on CWIN */
+                        /* TODO review this part */
+                        /* exit recovery, move to CA or SS, depending on CWIN */
                         cubic_state->alg_state = picoquic_cubic_alg_slow_start;
                         path_x->cwin += ack_state->nb_bytes_acknowledged;
 
                         cubic_state->cr_state.cwin = path_x->cwin;
 
-                    /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                        /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                         if (path_x->cwin >= cubic_state->ssthresh) {
                             cubic_state->alg_state = picoquic_cubic_alg_congestion_avoidance;
                         }
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
                         break;
@@ -447,9 +443,9 @@ void picoquic_cubic_notify(
                                         "picoquic_congestion_notification_ecn_ec | "
                                         "picoquic_congestion_notification_timeout\n");
                         CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
-                    /* For compatibility with Linux-TCP deployments, we implement a filter so
-                     * Cubic will only back off after repeated losses, not just after a single loss.
-                     */
+                        /* For compatibility with Linux-TCP deployments, we implement a filter so
+                         * Cubic will only back off after repeated losses, not just after a single loss.
+                         */
                         if (ack_state->lost_packet_number >= cubic_state->recovery_sequence &&
                             (notification == picoquic_congestion_notification_ecn_ec ||
                              picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification,
@@ -459,7 +455,7 @@ void picoquic_cubic_notify(
                             picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
                         }
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
@@ -474,7 +470,7 @@ void picoquic_cubic_notify(
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_recovery | "
                                         "picoquic_congestion_notification_cwin_blocked\n");
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
@@ -489,14 +485,14 @@ void picoquic_cubic_notify(
                                         "picoquic_congestion_notification_seed_cwin\n");
                         CC_DEBUG_DUMP("seed_cwin=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
                         break;
                     default:
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_recovery | default\n");
-                    /* ignore */
+                        /* ignore */
                         break;
                 }
                 break;
@@ -531,7 +527,7 @@ void picoquic_cubic_notify(
                             cubic_state->cr_state.cwin = path_x->cwin;
                         }
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
                         path_x->cwin = cubic_state->cr_state.cwin;
@@ -545,9 +541,9 @@ void picoquic_cubic_notify(
                                         "picoquic_congestion_notification_ecn_ec | "
                                         "picoquic_congestion_notification_timeout\n");
                         CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
-                    /* For compatibility with Linux-TCP deployments, we implement a filter so
-                     * Cubic will only back off after repeated losses, not just after a single loss.
-                     */
+                        /* For compatibility with Linux-TCP deployments, we implement a filter so
+                         * Cubic will only back off after repeated losses, not just after a single loss.
+                         */
                         if (ack_state->lost_packet_number >= cubic_state->recovery_sequence &&
                             (notification == picoquic_congestion_notification_ecn_ec ||
                              picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification,
@@ -557,11 +553,11 @@ void picoquic_cubic_notify(
                             picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
                         }
 
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
-                        break;
+                    break;
                     case picoquic_congestion_notification_spurious_repeat:
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
                                         "picoquic_congestion_notification_spurious_repeat\n");
@@ -575,7 +571,7 @@ void picoquic_cubic_notify(
                     case picoquic_congestion_notification_cwin_blocked:
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
                                         "picoquic_congestion_notification_cwin_blocked\n");
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
@@ -595,14 +591,14 @@ void picoquic_cubic_notify(
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
                                         "picoquic_congestion_notification_seed_cwin\n");
                         CC_DEBUG_DUMP("seed_cwin=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
-                    /* Nofify careful resume. */
+                        /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                         path_x->cwin = cubic_state->cr_state.cwin;
 
                         break;
                     default:
                         CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | default\n");
-                    /* ignore */
+                        /* ignore */
                         break;
                 }
                 break;

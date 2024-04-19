@@ -121,7 +121,7 @@ void picoquic_cr_notify(
                         (or higher) sent in the Unvalidated Phase is acknowledged. If the
                         last packet number is not cumulatively acknowledged, then additional
                         packets might need to be retransmitted. */
-                    if (path_x->delivered >= cr_state->jump_cwnd) {
+                    if (path_x->delivered + path_x->total_bytes_lost >= cr_state->jump_cwnd) {
                         CR_DEBUG_DUMP("delivered=%" PRIu64 " > cr_mark=%" PRIu64 "\n", path_x->delivered,
                             cr_state->jump_cwnd);
                         cr_state->trigger = picoquic_cr_trigger_cr_mark_acknowledged;
@@ -393,7 +393,6 @@ void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_path_t* pa
 }
 
 void picoquic_cr_enter_observe(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time) {
-
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_observe;
 
