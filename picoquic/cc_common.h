@@ -94,7 +94,7 @@ typedef enum {
     picoquic_cr_alg_observe = 0,
     picoquic_cr_alg_recon, // = 1,
     picoquic_cr_alg_unval, // = 2,
-    picoquic_cr_alg_validate, // = 3,
+    picoquic_cr_alg_validating, // = 3,
     picoquic_cr_alg_retreat, // = 4,
     picoquic_cr_alg_normal = 100
 } picoquic_cr_alg_state_t;
@@ -125,7 +125,7 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
 /* NOTE recon phase entered on init only */
 void picoquic_cr_enter_recon(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_unval(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
-void picoquic_cr_enter_validate(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_retreat(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_observe(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);

@@ -116,7 +116,7 @@ void picoquic_newreno_sim_notify(
                      */
                     if (nr_state->cr_state.alg_state == picoquic_cr_alg_observe ||
                         nr_state->cr_state.alg_state == picoquic_cr_alg_recon ||
-                        nr_state->cr_state.alg_state == picoquic_cr_alg_validate ||
+                        nr_state->cr_state.alg_state == picoquic_cr_alg_validating ||
                         nr_state->cr_state.alg_state == picoquic_cr_alg_normal) {
                         nr_state->cwin += ack_state->nb_bytes_acknowledged;
                         nr_state->cr_state.cwin = nr_state->cwin;

@@ -21,6 +21,7 @@
 */
 
 /* Decoding of the various frames, and application to context */
+#include <cc_common.h>
 #include <stdlib.h>
 #include <string.h>
 #include "picoquic_internal.h"

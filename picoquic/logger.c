@@ -1943,7 +1943,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
             case picoquic_cr_alg_unval:
                 fprintf(F, "old: %s,", "unvalidated");
                 break;
-            case picoquic_cr_alg_validate:
+            case picoquic_cr_alg_validating:
                 fprintf(F, "old: %s,", "validating");
                 break;
             case picoquic_cr_alg_normal:
@@ -1965,7 +1965,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
             case picoquic_cr_alg_unval:
                 fprintf(F, "new: %s,", "unvalidated");
                 break;
-            case picoquic_cr_alg_validate:
+            case picoquic_cr_alg_validating:
                 fprintf(F, "new: %s,", "validating");
                 break;
             case picoquic_cr_alg_normal:

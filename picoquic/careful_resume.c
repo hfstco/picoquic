@@ -81,10 +81,10 @@ void picoquic_cr_notify(
                             cr_state->trigger = picoquic_cr_trigger_congestion_window_limited;
                         }
                         CR_DEBUG_DUMP("(current_time - cr_state->start_of_epoch)=%" PRIu64 " > path_x->rtt_min=%" PRIu64 " || delivered=%" PRIu64 " > cr_mark=%" PRIu64 ", > 1 RTT OR first unvalidated packet ACKed\n", (current_time - cr_state->start_of_epoch), path_x->rtt_min, path_x->delivered, cr_state->cr_mark);
-                        picoquic_cr_enter_validate(cr_state, path_x, current_time);
+                        picoquic_cr_enter_validating(cr_state, path_x, current_time);
                     }
                     break;
-                case picoquic_cr_alg_validate:
+                case picoquic_cr_alg_validating:
                     /* VALIDATE: PS+=ACked */
                     /* *Validating Phase (Receiving acknowledgements for unvalidated
                         packets): The variable PipeSize if increased upon each
@@ -147,7 +147,7 @@ void picoquic_cr_notify(
                     picoquic_cr_enter_normal(cr_state, path_x, current_time);
                     break;
                 case picoquic_cr_alg_unval:
-                case picoquic_cr_alg_validate:
+                case picoquic_cr_alg_validating:
                     /* UNVAL, VALIDATE: Enter Safe Retreat */
                     /* *Validating Phase (Congestion indication): If a sender determines
                         that congestion was experienced (e.g., packet loss or ECN-CE
@@ -179,7 +179,7 @@ void picoquic_cr_notify(
                         " || bytes_in_transit=%" PRIu64 " >= cwin=%" PRIu64 "\n",
                         current_time - cr_state->start_of_epoch, path_x->rtt_min, path_x->bytes_in_transit,
                         cr_state->cwin);
-                    picoquic_cr_enter_validate(cr_state, path_x, current_time);
+                    picoquic_cr_enter_validating(cr_state, path_x, current_time);
                     break;
                 default:
                     break;
@@ -276,8 +276,8 @@ void picoquic_cr_enter_unval(picoquic_cr_state_t* cr_state, picoquic_path_t* pat
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
 }
 
-/* Enter VALIDATE phase. */
-void picoquic_cr_enter_validate(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+/* Enter VALIDATING phase. */
+void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
                                 uint64_t current_time) {
     CR_DEBUG_DUMP("cwin=%" PRIu64 ", bytes_in_transit=%" PRIu64 ", delivered=%" PRIu64 ", rtt_min=%" PRIu64 ", "
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
@@ -287,7 +287,7 @@ void picoquic_cr_enter_validate(picoquic_cr_state_t* cr_state, picoquic_path_t* 
            path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
-    cr_state->alg_state = picoquic_cr_alg_validate;
+    cr_state->alg_state = picoquic_cr_alg_validating;
 
     cr_state->previous_start_of_epoch = cr_state->start_of_epoch;
     cr_state->start_of_epoch = current_time;

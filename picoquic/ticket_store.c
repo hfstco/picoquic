@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <cc_common.h>
 
 picoquic_stored_ticket_t* picoquic_format_ticket(uint64_t time_valid_until,
     char const* sni, uint16_t sni_length, char const* alpn, uint16_t alpn_length,
@@ -581,6 +582,8 @@ void picoquic_seed_ticket(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
         if (path_x->bandwidth_estimate_max > 0) {
             target_cwin = (path_x->bandwidth_estimate_max * path_x->rtt_min) / 1000000ull;
         }
+        CR_DEBUG_PRINTF(path_x, "picoquic_seed_ticket\n");
+        CR_DEBUG_DUMP("cwin=%" PRIu64 ", rtt=%" PRIu64 "\n", target_cwin, path_x->rtt_min);
         picoquic_get_ip_addr((struct sockaddr*) & path_x->peer_addr, &ip_addr, &ip_addr_length);
         (void) picoquic_remember_issued_ticket(cnx->quic, cnx->issued_ticket_id,
             path_x->rtt_min, target_cwin, ip_addr, ip_addr_length);

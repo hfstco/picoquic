@@ -604,9 +604,9 @@ int careful_resume_data_limited_less_than_cwnd_test() {
 
 /** @name               data_limited_in_validate
  *
- *  @brief              Sender is data limited in validate phase.
+ *  @brief              Sender is data limited in validating phase.
  */
-int careful_resume_data_limited_in_validate_test() {
+int careful_resume_data_limited_in_validating_test() {
     return careful_resume_test_one(picoquic_cubic_algorithm, 100000, 50, 5, 300000, 0, 0x0, 1850000);
 }
 
@@ -621,9 +621,9 @@ int careful_resume_loss_in_recon_test() {
 
 /** @name               loss_in_validate
  *
- *  @brief              Packet #57 lost in validate phase.
+ *  @brief              Packet #57 lost in validating phase.
  */
-int careful_resume_loss_in_validate_test() {
+int careful_resume_loss_in_validating_test() {
     return careful_resume_test_one(picoquic_cubic_algorithm, 100000, 50, 5, 300000, 0, 0x7, 5450000);
 }
 

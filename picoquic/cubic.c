@@ -225,7 +225,7 @@ void picoquic_cubic_notify(
                              */
                             if (cubic_state->cr_state.alg_state == picoquic_cr_alg_observe ||
                                 cubic_state->cr_state.alg_state == picoquic_cr_alg_recon ||
-                                cubic_state->cr_state.alg_state == picoquic_cr_alg_validate ||
+                                cubic_state->cr_state.alg_state == picoquic_cr_alg_validating ||
                                 cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
                                 picoquic_hystart_increase(path_x, &cubic_state->rtt_filter,
                                                           ack_state->nb_bytes_acknowledged);
@@ -275,7 +275,7 @@ void picoquic_cubic_notify(
                                  * |ECNCE:|         |allowed  |                        |            |
                                  * +------+---------+---------+------------+-----------+------------+
                                  */
-                                /* TODO The table doesn't specify for unval and validate what the CC method should do in case
+                                /* TODO The table doesn't specify for unval and validating what the CC method should do in case
                                  * of loss or ECN CE. */
                                 if (cubic_state->cr_state.alg_state == picoquic_cr_alg_recon ||
                                     cubic_state->cr_state.alg_state == picoquic_cr_alg_normal ||
