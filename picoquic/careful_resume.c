@@ -283,7 +283,7 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    CR_DEBUG_PRINTF(path_x, "picoquic_cr_enter_validate(unique_path_id=%" PRIu64 ")\n",
+    CR_DEBUG_PRINTF(path_x, "picoquic_cr_enter_validating(unique_path_id=%" PRIu64 ")\n",
            path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
