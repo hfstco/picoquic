@@ -85,14 +85,14 @@ void picoquic_cr_notify(
                     }
                     break;
                 case picoquic_cr_alg_validating:
-                    /* VALIDATE: PS+=ACked */
+                    /* VALIDATING: PS+=ACked */
                     /* *Validating Phase (Receiving acknowledgements for unvalidated
                         packets): The variable PipeSize if increased upon each
                         acknowledgment that indicates a packet has been successfuly sent
                         over the path. This records the validated PipeSize in bytes. */
                     cr_state->pipesize += ack_state->nb_bytes_acknowledged;
 
-                    /* VALIDATE: If (last unvalidated packet is ACKed) enter Normal */
+                    /* VALIDATING: If (last unvalidated packet is ACKed) enter Normal */
                     /* *Validating Phase (Receiving acknowledgement for all unvalidated
                         packets): The sender enters the Normal Phase when an
                         acknowledgement is received for the last packet number (or
@@ -148,7 +148,7 @@ void picoquic_cr_notify(
                     break;
                 case picoquic_cr_alg_unval:
                 case picoquic_cr_alg_validating:
-                    /* UNVAL, VALIDATE: Enter Safe Retreat */
+                    /* UNVAL, VALIDATING: Enter Safe Retreat */
                     /* *Validating Phase (Congestion indication): If a sender determines
                         that congestion was experienced (e.g., packet loss or ECN-CE
                         marking), Careful Resume enters the Safe Retreat Phase. */
@@ -292,7 +292,7 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t
     cr_state->previous_start_of_epoch = cr_state->start_of_epoch;
     cr_state->start_of_epoch = current_time;
 
-    /* VALIDATE: If (FS>PS)
+    /* VALIDATING: If (FS>PS)
      *              {CWND=FS}
      *           else
      *              {CWND=PS; enter normal}
