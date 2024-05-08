@@ -330,7 +330,7 @@ void picoquic_cubic_notify(
                                                           (cnx->is_time_stamp_enabled)
                                                               ? ack_state->one_way_delay
                                                               : ack_state->rtt_measurement,
-                                                          cnx->path[0]->pacing_packet_time_microsec, current_time,
+                                                          cnx->path[0]->pacing.packet_time_microsec, current_time,
                                                           cnx->is_time_stamp_enabled)) {
                                     /* RTT increased too much, get out of slow start! */
                                     /*if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){
@@ -713,7 +713,7 @@ void picoquic_dcubic_notify(
                                                   (cnx->is_time_stamp_enabled)
                                                       ? ack_state->one_way_delay
                                                       : ack_state->rtt_measurement,
-                                                  cnx->path[0]->pacing_packet_time_microsec, current_time,
+                                                  cnx->path[0]->pacing.packet_time_microsec, current_time,
                                                   cnx->is_time_stamp_enabled)) {
                             dcubic_exit_slow_start(cnx, path_x, notification, cubic_state, current_time);
                         }
@@ -780,7 +780,7 @@ void picoquic_dcubic_notify(
                                                   (cnx->is_time_stamp_enabled)
                                                       ? ack_state->one_way_delay
                                                       : ack_state->rtt_measurement,
-                                                  cnx->path[0]->pacing_packet_time_microsec, current_time,
+                                                  cnx->path[0]->pacing.packet_time_microsec, current_time,
                                                   cnx->is_time_stamp_enabled)) {
                             if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
                                 cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x)) {
@@ -851,7 +851,7 @@ void picoquic_dcubic_notify(
                                                   (cnx->is_time_stamp_enabled)
                                                       ? ack_state->one_way_delay
                                                       : ack_state->rtt_measurement,
-                                                  cnx->path[0]->pacing_packet_time_microsec, current_time,
+                                                  cnx->path[0]->pacing.packet_time_microsec, current_time,
                                                   cnx->is_time_stamp_enabled)) {
                             if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
                                 cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x)) {
