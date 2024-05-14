@@ -674,6 +674,9 @@ typedef struct st_picoquic_quic_t {
     unsigned int use_predictable_random : 1; /* For logging tests */
     unsigned int use_careful_resume : 1; /* Use hystart++ instead of hystart. */
 
+    unsigned int forced_saved_cwnd;
+    unsigned int forced_saved_rtt;
+
     picoquic_stateless_packet_t* pending_stateless_packet;
 
     picoquic_congestion_algorithm_t const* default_congestion_alg;

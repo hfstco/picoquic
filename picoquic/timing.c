@@ -90,6 +90,14 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
 /* The BDP seed is validated upon receiving the first RTT measurement */
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
+    unsigned int saved_cwnd = 0;
+    if (cnx->quic->forced_saved_cwnd != 0 && cnx->quic->forced_saved_rtt != 0) {
+        uint8_t* ip_addr;
+        uint8_t ip_addr_length;
+        picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+        picoquic_seed_bandwidth(cnx, cnx->quic->forced_saved_rtt, cnx->quic->forced_saved_cwnd, ip_addr, ip_addr_length);
+    }
+
     /* TODO "rtt_not_validated" trigger for qlog. */
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
         !cnx->cwin_notified_from_seed &&

@@ -77,6 +77,8 @@ static picoquic_quic_config_t param1 = {
     1, /* unsigned int do_not_use_gso : 1 */
     0, /* disable port blocking */
     1,
+    3750000,
+    600000,
     /* Server only */
     "/data/www/", /* char const* www_dir; */
     { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
@@ -161,6 +163,8 @@ static picoquic_quic_config_t param2 = {
     0, /* unsigned int do_not_use_gso : 1 */
     1, /* disable port blocking */
     0,
+    3750000,
+    600000,
     /* Server only */
     NULL, /* char const* www_dir; */
     { 0 }, /* Reset seed */
