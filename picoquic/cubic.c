@@ -203,16 +203,6 @@ static void picoquic_cubic_correct_spurious(picoquic_path_t* path_x,
     }
 }
 
-static void cubic_update_bandwidth(picoquic_path_t* path_x)
-{
-    /* RTT measurements will happen after the bandwidth is estimated */
-    uint64_t max_win = path_x->peak_bandwidth_estimate * path_x->smoothed_rtt / 1000000;
-    uint64_t min_win = max_win /= 2;
-    if (path_x->cwin < min_win) {
-        path_x->cwin = min_win;
-    }
-}
-
 /*
  * Properly implementing Cubic requires managing a number of
  * signals, such as packet losses or acknowledgements. We attempt
@@ -233,7 +223,6 @@ static void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     picoquic_hystart_increase(path_x, &cubic_state->rtt_filter, ack_state->nb_bytes_acknowledged);
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
@@ -268,18 +257,6 @@ static void picoquic_cubic_notify(
                     picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
                         cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     /* RTT increased too much, get out of slow start! */
-                    if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){
-                        double correction;
-                        if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                            correction = (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
-                        }
-                        else {
-                            correction = (double)PICOQUIC_TARGET_RENO_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
-                        }
-                        uint64_t base_window = (uint64_t)(correction * (double)path_x->cwin);
-                        uint64_t delta_window = path_x->cwin - base_window;
-                        path_x->cwin -= (delta_window / 2);
-                    }
                     cubic_state->ssthresh = path_x->cwin;
                     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
                     cubic_state->W_last_max = cubic_state->W_max;
@@ -498,22 +475,6 @@ static void picoquic_dcubic_notify(
                 /* Unlike Cubic, losses have no effect so do nothing here */
                 break;
             case picoquic_congestion_notification_rtt_measurement:
-                /* if in slow start, increase the window for long delay RTT */
-                if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT && cubic_state->ssthresh == UINT64_MAX) {
-                    uint64_t min_cwnd;
-
-                    if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                        min_cwnd = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-                    else {
-                        min_cwnd = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-
-                    if (min_cwnd > path_x->cwin) {
-                        path_x->cwin = min_cwnd;
-                    }
-                }
-
                 /* Using RTT increases as congestion signal. This is used
                  * for getting out of slow start, but also for ending a cycle
                  * during congestion avoidance */
@@ -561,22 +522,6 @@ static void picoquic_dcubic_notify(
                 /* do nothing */
                 break;
             case picoquic_congestion_notification_rtt_measurement:
-                /* if in slow start, increase the window for long delay RTT */
-                if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT && cubic_state->ssthresh == UINT64_MAX) {
-                    uint64_t min_cwnd;
-
-                    if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                        min_cwnd = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-                    else {
-                        min_cwnd = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-
-                    if (min_cwnd > path_x->cwin) {
-                        path_x->cwin = min_cwnd;
-                    }
-                }
-
                 if (picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
                     cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||

@@ -310,14 +310,6 @@ void BBR1EnterStartupLongRTT(picoquic_bbr1_state_t* bbr1_state, picoquic_path_t*
     uint64_t cwnd = PICOQUIC_CWIN_INITIAL;
     bbr1_state->state = picoquic_bbr1_alg_startup_long_rtt;
 
-    if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT) {
-        if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-            cwnd = (uint64_t)((double)cwnd * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
-        }
-        else {
-            cwnd = (uint64_t)((double)cwnd * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
-        }
-    }
     if (cwnd > path_x->cwin) {
         path_x->cwin = cwnd;
     }

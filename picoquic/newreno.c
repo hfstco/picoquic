@@ -251,22 +251,6 @@ static void picoquic_newreno_notify(
             if (nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
                 nr_state->nrss.ssthresh == UINT64_MAX){
 
-                if (path_x->rtt_min > PICOQUIC_TARGET_RENO_RTT) {
-                    uint64_t min_win;
-
-                    if (path_x->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                        min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-                    else {
-                        /* Increase initial CWIN for long delay links. */
-                        min_win = (uint64_t)((double)PICOQUIC_CWIN_INITIAL * (double)path_x->rtt_min / (double)PICOQUIC_TARGET_RENO_RTT);
-                    }
-                    if (min_win > nr_state->nrss.cwin) {
-                        nr_state->nrss.cwin = min_win;
-                        path_x->cwin = min_win;
-                    }
-                }
-
                 if (picoquic_hystart_test(&nr_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
                     cnx->path[0]->pacing.packet_time_microsec, current_time,
                     cnx->is_time_stamp_enabled)) {
