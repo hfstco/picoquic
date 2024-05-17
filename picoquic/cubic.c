@@ -243,7 +243,7 @@ static void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                //cubic_update_bandwidth(path_x);
+                cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     if (path_x->cnx->quic->use_hystart_pp) {
                         path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state);
@@ -351,7 +351,7 @@ static void picoquic_cubic_notify(
                     /* Using RTT increases as signal to get out of initial slow start */
                     if (cubic_state->ssthresh == UINT64_MAX &&
                         picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                            cnx->path[0]->pacing_packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
+                            cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                         /* RTT increased too much, get out of slow start! */
                         if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){
                             double correction;
@@ -380,7 +380,7 @@ static void picoquic_cubic_notify(
                         else {
                             cubic_state->start_of_epoch = current_time - K_micro;
                         }
-                    }
+                            }
                 }
 
                 break;
@@ -604,7 +604,7 @@ static void picoquic_dcubic_notify(
                  * for getting out of slow start, but also for ending a cycle
                  * during congestion avoidance */
                 if (picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                    cnx->path[0]->pacing_packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
+                    cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     dcubic_exit_slow_start(cnx, path_x, notification, cubic_state, current_time);
                 }
                 break;
@@ -664,7 +664,7 @@ static void picoquic_dcubic_notify(
                 }
 
                 if (picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                    cnx->path[0]->pacing_packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
+                    cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
                         cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x)) {
                         /* re-enter recovery if this is a new event */
@@ -729,7 +729,7 @@ static void picoquic_dcubic_notify(
                 break;
             case picoquic_congestion_notification_rtt_measurement:
                 if (picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                    cnx->path[0]->pacing_packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
+                    cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
                         cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x)) {
                         /* re-enter recovery */

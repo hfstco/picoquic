@@ -334,15 +334,14 @@ static void picoquic_newreno_notify(
                     }
 
                     if (picoquic_hystart_test(&nr_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                        cnx->path[0]->pacing_packet_time_microsec, current_time,
-                        cnx->is_time_stamp_enabled)) {
+                    cnx->path[0]->pacing.packet_time_microsec, current_time,
+                cnx->is_time_stamp_enabled)) {
                         /* RTT increased too much, get out of slow start! */
                         nr_state->nrss.ssthresh = nr_state->nrss.cwin;
                         nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
                         path_x->cwin = nr_state->nrss.cwin;
                         path_x->is_ssthresh_initialized = 1;
                     }
-                }
             }
             break;
         case picoquic_congestion_notification_cwin_blocked:
