@@ -176,6 +176,7 @@ void picoquic_hystart_increase(picoquic_path_t * path_x, picoquic_min_max_rtt_t*
     path_x->cwin += nb_delivered;
 }
 
+/** Resets the HyStart++ state. */
 void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state) {
     /* lastRoundMinRTT and currentRoundMinRTT are initialized to infinity at the initialization time. currRTT is
      * the RTT sampled from the latest incoming ACK and initialized to infinity.
@@ -208,32 +209,48 @@ void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_rou
     hystart_pp_round->rtt_sample_count = 0;
 }
 
+/** Merges following two cases: */
 /** For each arriving ACK in slow start, where N is the number of previously unacknowledged bytes acknowledged in
  * the arriving ACK:
  * Update the cwnd:
  *      cwnd = cwnd + min(N, L * SMSS)
+ */
+/** For each arriving ACK in CSS, where N is the number of previously unacknowledged bytes acknowledged in the arriving
+ * ACK:
+ * Update the cwnd:
+ *      cwnd = cwnd + (min(N, L * SMSS) / CSS_GROWTH_DIVISOR)
+ */
+uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state) {
+    /* picoquic uses pacing -> L = UINT64_MAX -> L * SMSS >= UINT64_MAX. We don't need to check the minimum. min(N, UINT64_MAX) = N
+     * cwnd = cwnd + min(N, L * SMSS) -> cwnd = cwnd + N     -> cwnd = cwnd + N / 1
+     * cwnd = cwnd + (min(N, L * SMSS) / CSS_GROWTH_DIVISOR) -> cwnd = cwnd + N / CSS_GROWTH_DIVISOR
+     */
+    /* if css_baseline_min_rtt is NOT set (!= UINT64_MAX), then we are in SS. otherwise we are in CSS and use the
+     * CSS_GROWTH_DIVISOR. We combine the two cases above in one function. The only difference between SS and CSS is the usage of the CSS_GROWTH_DIVISOR.
+     */
+    return ack_state->nb_bytes_acknowledged / ((hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) ? 1 : PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR);
+}
+
+/** Merges following two cases: */
+/** For each arriving ACK in slow start, where N is the number of previously unacknowledged bytes acknowledged in
+ * the arriving ACK:
  * Keep track of the minimum observed RTT:
  *      currentRoundMinRTT = min(currentRoundMinRTT, currRTT)
  *      rttSampleCount += 1
  */
 /** For each arriving ACK in CSS, where N is the number of previously unacknowledged bytes acknowledged in the arriving
  * ACK:
- * Update the cwnd:
- *      cwnd = cwnd + (min(N, L * SMSS) / CSS_GROWTH_DIVISOR)
  * Keep track of the minimum observed RTT:
  *      currentRoundMinRTT = min(currentRoundMinRTT, currRTT)
  *      rttSampleCount += 1
  */
-uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state) {
+void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, picoquic_per_ack_state_t* ack_state) {
+    /* TODO calc RTT if one_way_delay option is set. */
     hystart_pp_state->current_round.current_round_min_rtt = MIN(hystart_pp_state->current_round.current_round_min_rtt, ack_state->rtt_measurement);
     hystart_pp_state->current_round.rtt_sample_count++;
-
-    /* TODO check PICOQUIC_INITIAL_MTU_IPV4 */
-    /* if css_baseline_min_rtt is NOT set (!= UINT64_MAX), then we are in SS. otherwise we are in CSS and use the
-     * CSS_GROWTH_DIVISOR. We combine the two cases above in one function. The only difference between SS and CSS is the usage of the CSS_GROWTH_DIVISOR. */
-    return MIN(ack_state->nb_bytes_acknowledged, (PICOQUIC_HYSTART_PP_L == UINT64_MAX) ? PICOQUIC_HYSTART_PP_L : PICOQUIC_HYSTART_PP_L * PICOQUIC_INITIAL_MTU_IPV4) / ((hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) ? 1 : PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR);
 }
 
+/** Merges following two cases: */
 /** For rounds where at least N_RTT_SAMPLE RTT samples have been obtained and currentRoundMinRTT and lastRoundMinRTT
  * are valid, check to see if delay increase triggers slow start exit:
  *      if ((rttSampleCount >= N_RTT_SAMPLE) AND (currentRoundMinRTT != infinity) AND (lastRoundMinRTT != infinity))
@@ -248,10 +265,8 @@ uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_st
  *          cssBaselineMinRtt = infinity
  *          resume slow start including HyStart++
  */
-int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
-    int ret = 0;
+void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
 
-    /* Like above we combine the two cases (SS, CSS). */
     if (hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) {
         /* In slow start (SS) */
         if (hystart_pp_state->current_round.rtt_sample_count >= PICOQUIC_HYSTART_PP_N_RTT_SAMPLE &&
@@ -263,7 +278,6 @@ int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
                 /* exit slow start and enter CSS */
                 hystart_pp_state->css_baseline_min_rtt = hystart_pp_state->current_round.current_round_min_rtt;
                 CC_DEBUG_DUMP("exit slow start and enter CSS\n");
-                ret = 1;
             }
         }
     } else {
@@ -273,12 +287,9 @@ int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
                 /* resume slow start including hystart++ */
                 hystart_pp_state->css_baseline_min_rtt = UINT64_MAX;
                 CC_DEBUG_DUMP("resume slow start including hystart++\n");
-                ret = 1;
             }
         }
     }
-
-    return ret;
 }
 
 uint64_t picoquic_cc_increased_window(picoquic_cnx_t* cnx, uint64_t previous_window)

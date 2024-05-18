@@ -159,10 +159,6 @@ static int satellite_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t da
         /* set the qlog on the server side */
         picoquic_set_qlog(test_ctx->qserver, ".");
 
-        /* enable hystart for client and server */
-        //picoquic_set_hystart_pp(test_ctx->qclient, 1);
-        //picoquic_set_hystart_pp(test_ctx->qserver, 1);
-
         if (ret == 0) {
             ret = tls_api_one_scenario_body(test_ctx, &simulated_time,
                 NULL, 0, data_size, (has_loss) ? 0x10000000 : 0, 0, 2 * latency, max_completion_time);

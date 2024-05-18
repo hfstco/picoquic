@@ -95,10 +95,11 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
 typedef struct st_picoquic_hystart_pp_round_t {
     uint64_t last_round_min_rtt;
     uint64_t current_round_min_rtt;
-    //uint64_t curr_rtt; /* TODO check if needed */
+    /* uint64_t curr_rtt; */ /* TODO check if needed */
     uint64_t rtt_sample_count;
 } picoquic_hystart_pp_round_t;
 
+/* TODO merge with picoquic_min_max_rtt_t? */
 typedef struct st_picoquic_hystart_pp_state_t {
     picoquic_hystart_pp_round_t current_round;
 
@@ -111,9 +112,11 @@ typedef struct st_picoquic_hystart_pp_state_t {
 void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
 
 void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
-uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
 
-int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
+uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+
+void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
 
 
 /* Many congestion control algorithms run a parallel version of new reno in order
@@ -135,10 +138,9 @@ typedef struct st_picoquic_newreno_sim_state_t {
     uint64_t ssthresh;
     uint64_t recovery_start;
     uint64_t recovery_sequence;
-    picoquic_hystart_pp_state_t hystart_pp_state;
 } picoquic_newreno_sim_state_t;
 
-void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t* nrss, picoquic_path_t* path_x);
+void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t* nrss);
 
 void picoquic_newreno_sim_notify(
     picoquic_newreno_sim_state_t* nr_state,
