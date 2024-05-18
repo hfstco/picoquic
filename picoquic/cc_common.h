@@ -113,8 +113,8 @@ void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
 
 void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
 
-uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
-void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, uint64_t nb_bytes_acknowledged);
+void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, uint64_t rtt_measurement);
 
 void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
 

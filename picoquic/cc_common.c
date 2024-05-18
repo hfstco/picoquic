@@ -220,7 +220,7 @@ void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_rou
  * Update the cwnd:
  *      cwnd = cwnd + (min(N, L * SMSS) / CSS_GROWTH_DIVISOR)
  */
-uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state) {
+uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, uint64_t nb_bytes_acknowledged) {
     /* picoquic uses pacing -> L = UINT64_MAX -> L * SMSS >= UINT64_MAX. We don't need to check the minimum. min(N, UINT64_MAX) = N
      * cwnd = cwnd + min(N, L * SMSS) -> cwnd = cwnd + N     -> cwnd = cwnd + N / 1
      * cwnd = cwnd + (min(N, L * SMSS) / CSS_GROWTH_DIVISOR) -> cwnd = cwnd + N / CSS_GROWTH_DIVISOR
@@ -228,7 +228,7 @@ uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_st
     /* if css_baseline_min_rtt is NOT set (!= UINT64_MAX), then we are in SS. otherwise we are in CSS and use the
      * CSS_GROWTH_DIVISOR. We combine the two cases above in one function. The only difference between SS and CSS is the usage of the CSS_GROWTH_DIVISOR.
      */
-    return ack_state->nb_bytes_acknowledged / ((hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) ? 1 : PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR);
+    return nb_bytes_acknowledged / ((hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) ? 1 : PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR);
 }
 
 /** Merges following two cases: */
@@ -244,9 +244,9 @@ uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_st
  *      currentRoundMinRTT = min(currentRoundMinRTT, currRTT)
  *      rttSampleCount += 1
  */
-void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, picoquic_per_ack_state_t* ack_state) {
+void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_state, uint64_t rtt_measurement) {
     /* TODO calc RTT if one_way_delay option is set. */
-    hystart_pp_state->current_round.current_round_min_rtt = MIN(hystart_pp_state->current_round.current_round_min_rtt, ack_state->rtt_measurement);
+    hystart_pp_state->current_round.current_round_min_rtt = MIN(hystart_pp_state->current_round.current_round_min_rtt, rtt_measurement);
     hystart_pp_state->current_round.rtt_sample_count++;
 }
 
@@ -265,7 +265,7 @@ void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_stat
  *          cssBaselineMinRtt = infinity
  *          resume slow start including HyStart++
  */
-void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
+void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state, int is_one_way_delay_enabled) {
 
     if (hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) {
         /* In slow start (SS) */

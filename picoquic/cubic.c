@@ -245,7 +245,7 @@ static void picoquic_cubic_notify(
             case picoquic_congestion_notification_acknowledgement:
                 cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                    path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state);
+                    path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state->nb_bytes_acknowledged);
 
                     /* TODO: (path_x->cwin >= cubic_state->ssthresh) -> congestion avoidance? */
                 }
@@ -279,7 +279,7 @@ static void picoquic_cubic_notify(
             case picoquic_congestion_notification_rtt_measurement:
                 /* TODO merge hystart_pp_keep_track and hystart_pp_test? */
                 /* Keep track. */
-                picoquic_hystart_pp_keep_track(&cubic_state->hystart_pp_state, ack_state);
+                picoquic_hystart_pp_keep_track(&cubic_state->hystart_pp_state, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay * 2 : ack_state->rtt_measurement);
                 /* HyStart test. Transition between SS and CSS. */
                 picoquic_hystart_pp_test(&cubic_state->hystart_pp_state);
 

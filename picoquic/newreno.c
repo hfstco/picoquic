@@ -229,7 +229,7 @@ static void picoquic_newreno_notify(
             switch (nr_state->nrss.alg_state) {
                 case picoquic_newreno_alg_slow_start:
                     if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                        path_x->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state);
+                        path_x->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state->nb_bytes_acknowledged);
                         nr_state->nrss.cwin = path_x->cwin;
                     }
                     break;
@@ -261,7 +261,7 @@ static void picoquic_newreno_notify(
 
                 /* TODO merge hystart_pp_keep_track and hystart_pp_test? */
                 /* Keep track. */
-                picoquic_hystart_pp_keep_track(&nr_state->hystart_pp_state, ack_state);
+                picoquic_hystart_pp_keep_track(&nr_state->hystart_pp_state, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay * 2 : ack_state->rtt_measurement);
                 /* HyStart test. Transition between SS and CSS. */
                 picoquic_hystart_pp_test(&nr_state->hystart_pp_state);
 
