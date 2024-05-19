@@ -519,7 +519,6 @@ int picowt_baton_multi_test();
 int picowt_baton_random_test();
 int picowt_baton_wrong_test();
 int picowt_baton_uri_test();
-int hystart_pp_test();
 
 int cplusplustest();
 

@@ -118,7 +118,6 @@ void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_stat
 
 void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
 
-
 /* Many congestion control algorithms run a parallel version of new reno in order
  * to provide a lower bound estimate of either the congestion window or the
  * the minimal bandwidth. This implementation of new reno does not directly

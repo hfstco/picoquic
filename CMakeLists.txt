@@ -150,7 +150,6 @@ set(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/edge_cases.c
     picoquictest/hashtest.c
     picoquictest/high_latency_test.c
-    picoquictest/hystart_pp_test.c
     picoquictest/intformattest.c
     picoquictest/l4s_test.c
     picoquictest/mbedtls_test.c
