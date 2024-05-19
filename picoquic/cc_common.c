@@ -265,7 +265,7 @@ void picoquic_hystart_pp_keep_track(picoquic_hystart_pp_state_t *hystart_pp_stat
  *          cssBaselineMinRtt = infinity
  *          resume slow start including HyStart++
  */
-void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state, int is_one_way_delay_enabled) {
+void picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state) {
 
     if (hystart_pp_state->css_baseline_min_rtt == UINT64_MAX) {
         /* In slow start (SS) */
