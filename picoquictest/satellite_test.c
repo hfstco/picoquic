@@ -160,7 +160,7 @@ static int satellite_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t da
         picoquic_set_qlog(test_ctx->qserver, ".");
 
         /* enable hystart for client and server */
-        //picoquic_set_hystart_pp(test_ctx->qclient, 1);
+        picoquic_set_hystart_pp(test_ctx->qclient, 1);
         //picoquic_set_hystart_pp(test_ctx->qserver, 1);
 
         if (ret == 0) {
