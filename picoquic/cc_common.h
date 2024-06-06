@@ -72,7 +72,9 @@ int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measur
 
 void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* rtt_filter, uint64_t nb_delivered);
 
-/* Hystart++ */
+/*
+ * HyStart++
+ */
 
 /* It is RECOMMENDED that a HyStart++ implementation use the following constants: */
 /* MIN_RTT_THRESH = 4 msec
@@ -135,7 +137,6 @@ typedef struct st_picoquic_newreno_sim_state_t {
     uint64_t ssthresh;
     uint64_t recovery_start;
     uint64_t recovery_sequence;
-    picoquic_hystart_pp_state_t hystart_pp_state;
 } picoquic_newreno_sim_state_t;
 
 void picoquic_newreno_sim_reset(picoquic_newreno_sim_state_t* nrss, picoquic_path_t* path_x);

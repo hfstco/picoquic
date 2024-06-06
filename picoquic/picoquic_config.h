@@ -107,7 +107,6 @@ typedef struct st_picoquic_quic_config_t {
     unsigned int do_preemptive_repeat : 1;
     unsigned int do_not_use_gso : 1;
     unsigned int disable_port_blocking : 1;
-    unsigned int use_hystart_pp : 1;
     /* Server only */
     char const* www_dir;
     uint8_t reset_seed[16];

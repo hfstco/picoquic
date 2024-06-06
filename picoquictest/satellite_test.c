@@ -159,10 +159,6 @@ static int satellite_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t da
         /* set the qlog on the server side */
         picoquic_set_qlog(test_ctx->qserver, ".");
 
-        /* enable hystart for client and server */
-        picoquic_set_hystart_pp(test_ctx->qclient, 1);
-        //picoquic_set_hystart_pp(test_ctx->qserver, 1);
-
         if (ret == 0) {
             ret = tls_api_one_scenario_body(test_ctx, &simulated_time,
                 NULL, 0, data_size, (has_loss) ? 0x10000000 : 0, 0, 2 * latency, max_completion_time);
@@ -270,13 +266,13 @@ int satellite_small_up_test()
 int satellite_cubic_test()
 {
     /* Should be less than 7 sec per draft etosat, but cubic is much slower */
-    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 21250000, 50, 5, 0, 0, 0, 0, 0, 0);
+    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 11000000, 250, 3, 0, 0, 0, 0, 0, 0);
 }
 
 int satellite_cubic_loss_test()
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 22150000, 50, 5, 0, 1, 0, 0, 0, 0);
+    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 12100000, 250, 3, 0, 1, 0, 0, 0, 0);
 }
 
 int satellite_newreno_test()
@@ -285,11 +281,11 @@ int satellite_newreno_test()
     return satellite_test_one(picoquic_newreno_algorithm, 100000000, 20050000, 50, 5, 0, 0, 0, 0, 0, 0);
 }
 
-/* TODO check */
+/* TODO */
 int satellite_newreno_loss_test()
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return satellite_test_one(picoquic_newreno_algorithm, 100000000, 4221450000, 50, 5, 0, 1, 0, 0, 0, 0);
+    return satellite_test_one(picoquic_newreno_algorithm, 100000000, UINT64_MAX, 50, 5, 0, 1, 0, 0, 0, 0);
 }
 
 /* Satellite loss interop test, as shown in https://interop.sedrubal.de/

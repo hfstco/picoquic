@@ -4730,14 +4730,6 @@ void picoquic_set_default_congestion_algorithm_by_name(picoquic_quic_t* quic, ch
 }
 
 /*
- * Enable or disable hystart++
- */
-
-void picoquic_set_hystart_pp(picoquic_quic_t* quic, int use_hystart_pp) {
-    quic->use_hystart_pp = use_hystart_pp;
-}
-
-/*
  * Set the optimistic ack policy
  */
 
