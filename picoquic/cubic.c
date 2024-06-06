@@ -315,25 +315,24 @@ static void picoquic_cubic_notify(
                      * slow start or CSS, enter congestion avoidance by setting the ssthresh to the current cwnd.
                      *      ssthresh = cwnd
                      */
-                    cubic_state->ssthresh = path_x->cwin;
+                    /*cubic_state->ssthresh = path_x->cwin;
                     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
                     cubic_state->W_last_max = cubic_state->W_max;
                     cubic_state->W_reno = ((double)path_x->cwin);
                     path_x->is_ssthresh_initialized = 1;
-                    picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                    picoquic_cubic_enter_avoidance(cubic_state, current_time);*/
                     /* TODO check if code below also works for hystart++ */
                 /*} else {*/
-                    /* For compatibility with Linux-TCP deployments, we implement a filter so
-                     * Cubic will only back off after repeated losses, not just after a single loss.
-                     */
-                    /*if ((notification == picoquic_congestion_notification_ecn_ec ||
-                        picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
-                        (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
-                            cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
-                        path_x->is_ssthresh_initialized = 1;
-                        picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
-                    }*/
-                /*}*/
+                /* For compatibility with Linux-TCP deployments, we implement a filter so
+                 * Cubic will only back off after repeated losses, not just after a single loss.
+                 */
+                if ((notification == picoquic_congestion_notification_ecn_ec ||
+                    picoquic_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) &&
+                    (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt ||
+                        cubic_state->recovery_sequence <= picoquic_cc_get_ack_number(cnx, path_x))) {
+                    path_x->is_ssthresh_initialized = 1;
+                    picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
+                }
                 break;
             case picoquic_congestion_notification_spurious_repeat:
                 /* Reset CWIN based on ssthresh, not based on current value. */
