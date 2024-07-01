@@ -4083,6 +4083,11 @@ uint64_t picoquic_current_time()
     /*
     * Use CLOCK_MONOTONIC if exists (more accurate)
     */
+    /*
+     * !!!IMPORTANT!!!
+     * Use realtime clock for analysis instead of monotonic one. In production environment please revert it to comply
+     * with the draft.
+     */
     struct timespec currentTime;
     (void)clock_gettime(CLOCK_MONOTONIC, &currentTime);
     now = (currentTime.tv_sec * 1000000ull) + currentTime.tv_nsec / 1000ull;
