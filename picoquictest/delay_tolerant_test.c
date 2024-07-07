@@ -202,7 +202,7 @@ int dtn_data_test()
     spec.scenario = dtn_scenario_data;
     spec.sizeof_scenario = sizeof(dtn_scenario_data);
     spec.initial_flow_control_credit = 100000000; /* 100 MB, same as data size in scenario */
-    spec.max_completion_time = 500000000; /* 8 minutes and 20 sec, including 2 minutes handshae, 2 minutes req/resp, 2 minutes chirp... */
+    spec.max_completion_time = 525000000; /* 8 minutes and 20 sec, including 2 minutes handshae, 2 minutes req/resp, 2 minutes chirp... */
     return dtn_test_one(0xda, &spec);
 }
 

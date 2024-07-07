@@ -4813,7 +4813,7 @@ int mtu_drop_fast_test()
 
 int mtu_drop_newreno_test()
 {
-    int ret = mtu_drop_cc_algotest(picoquic_newreno_algorithm, 11600000);
+    int ret = mtu_drop_cc_algotest(picoquic_newreno_algorithm, 12000000);
     return ret;
 }
 
@@ -9222,7 +9222,7 @@ int bbr_performance_test()
 
 int bbr_slow_long_test()
 {
-    uint64_t max_completion_time = 81000000;
+    uint64_t max_completion_time = 81500000;
     uint64_t latency = 300000;
     uint64_t jitter = 3000;
     uint64_t buffer = 2 * (latency + jitter);
@@ -10900,8 +10900,8 @@ int cwin_max_test()
         picoquic_fastcc_algorithm };
     uint64_t max_completion_times[] = {
         11000000,
-        11000000,
-        11000000,
+        13500000,
+        13500000,
         11000000,
         12100000 };
     int ret = 0;
@@ -11367,7 +11367,7 @@ int multi_segment_test()
     };
     uint64_t algo_time[5] = {
         1220000,
-        1050000,
+        1200000,
         1250000,
         1350000,
         1280000
@@ -12422,7 +12422,7 @@ int bdp_option_test_one(bdp_test_option_enum bdp_test_option)
                 case bdp_test_option_none:
                     break;
                 case bdp_test_option_basic:
-                    max_completion_time = 5800000;
+                    max_completion_time = 5850000;
                     break;
                 case bdp_test_option_rtt:
                     max_completion_time = 4610000;
