@@ -460,6 +460,14 @@ int picoquic_demo_client_callback(picoquic_cnx_t* cnx,
             stream_ctx = picoquic_demo_client_find_stream(ctx, stream_id);
         }
         if (stream_ctx != NULL && stream_ctx->is_open) {
+            /*
+             * Request to stop sending if time is up.
+             */
+            if(picoquic_current_time() > ctx->stop_sending_time) {
+                picoquic_stop_sending(cnx, stream_id, 0);
+                fprintf(stdout, "Request to stop sending.\n");
+            }
+
             if (!stream_ctx->is_file_open && ctx->no_disk == 0) {
                 ret = picoquic_demo_client_open_stream_file(cnx, ctx, stream_ctx);
             }
@@ -631,7 +639,7 @@ int picoquic_demo_client_initialize_context(
     picoquic_demo_stream_desc_t const * demo_stream,
 	size_t nb_demo_streams,
 	char const * alpn,
-    int no_disk, int delay_fin)
+    int no_disk, int delay_fin, uint64_t stop_time)
 {
     memset(ctx, 0, sizeof(picoquic_demo_callback_ctx_t));
     ctx->demo_stream = demo_stream;
@@ -639,6 +647,7 @@ int picoquic_demo_client_initialize_context(
     ctx->alpn = picoquic_parse_alpn(alpn);
     ctx->no_disk = no_disk;
     ctx->delay_fin = delay_fin;
+    ctx->stop_sending_time = stop_time;
 
     return 0;
 }
