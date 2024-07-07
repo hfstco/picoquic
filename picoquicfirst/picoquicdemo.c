@@ -738,7 +738,7 @@ int client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
 /* Quic Client */
 int quic_client(const char* ip_address_text, int server_port, 
     picoquic_quic_config_t * config, int force_migration,
-    int nb_packets_before_key_update, char const * client_scenario_text)
+    int nb_packets_before_key_update, uint64_t stop_sending_after, char const * client_scenario_text)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -858,7 +858,10 @@ int quic_client(const char* ip_address_text, int server_port,
                 return -1;
             }
             else {
-                ret = picoquic_demo_client_initialize_context(&callback_ctx, client_sc, client_sc_nb, config->alpn, config->no_disk, 0);
+                if (stop_sending_after != -1) {
+                    fprintf(stdout, "Stop sending after: %" PRIu64 "\n", stop_sending_after);
+                }
+                ret = picoquic_demo_client_initialize_context(&callback_ctx, client_sc, client_sc_nb, config->alpn, config->no_disk, 0, (stop_sending_after != -1 ) ? current_time + stop_sending_after : UINT64_MAX);
                 callback_ctx.out_dir = config->out_dir;
             }
         }
@@ -1251,6 +1254,7 @@ int main(int argc, char** argv)
     int force_migration = 0;
     int just_once = 0;
     int is_client = 0;
+    uint64_t stop_sending_after = -1;
     int ret;
 
 #ifdef _WINDOWS
@@ -1258,8 +1262,8 @@ int main(int argc, char** argv)
     (void)WSA_START(MAKEWORD(2, 2), &wsaData);
 #endif
     picoquic_config_init(&config);
-    memcpy(option_string, "A:u:f:1", 7);
-    ret = picoquic_config_option_letters(option_string + 7, sizeof(option_string) - 7, NULL);
+    memcpy(option_string, "A:E:u:f:1", 9);
+    ret = picoquic_config_option_letters(option_string + 9, sizeof(option_string) - 7, NULL);
 
     if (ret == 0) {
         /* Get the parameters */
@@ -1281,6 +1285,11 @@ int main(int argc, char** argv)
             case '1':
                 just_once = 1;
                 break;
+            case 'E':
+                if ((stop_sending_after = atoi(optarg)) <= 0) {
+                    fprintf(stderr, "Invalid time: %s\n", optarg);
+                    usage();
+                }
             case 'A':
                 config.multipath_alt_config = malloc(sizeof(char) * (strlen(optarg) + 1));
                 memcpy(config.multipath_alt_config, optarg, sizeof(char) * (strlen(optarg) + 1));
@@ -1343,7 +1352,7 @@ int main(int argc, char** argv)
         /* Run as client */
         printf("Starting Picoquic (v%s) connection to server = %s, port = %d\n", PICOQUIC_VERSION, server_name, server_port);
         ret = quic_client(server_name, server_port, &config,
-            force_migration, nb_packets_before_update, client_scenario);
+            force_migration, nb_packets_before_update, stop_sending_after, client_scenario);
 
         printf("Client exit with code = %d\n", ret);
     }

@@ -88,6 +88,7 @@ typedef struct st_picoquic_demo_client_callback_ctx_t {
     int no_print;
     int connection_ready;
     int connection_closed;
+    uint64_t stop_sending_time;
 } picoquic_demo_callback_ctx_t;
 
 picoquic_alpn_enum picoquic_parse_alpn(char const * alpn);
@@ -116,7 +117,7 @@ int picoquic_demo_client_initialize_context(
     picoquic_demo_stream_desc_t const * demo_stream,
     size_t nb_demo_streams,
     char const * alpn,
-    int no_disk, int delay_fin);
+    int no_disk, int delay_fin, uint64_t stop_time);
 void picoquic_demo_client_delete_context(picoquic_demo_callback_ctx_t* ctx);
 
 int demo_client_parse_scenario_desc(char const * text, size_t * nb_streams, picoquic_demo_stream_desc_t ** desc);
