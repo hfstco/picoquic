@@ -1704,8 +1704,9 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 			ret = h3zero_callback_data(cnx, stream_id, bytes, length,
 				fin_or_event, ctx, stream_ctx, &fin_stream_id);
 			break;
-		case picoquic_callback_stream_reset: /* Peer reset stream #x */
 		case picoquic_callback_stop_sending: /* Peer asks server to reset stream #x */
+			fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_stop_sending\n", picoquic_current_time());
+		case picoquic_callback_stream_reset: /* Peer reset stream #x */
 											 /* TODO: special case for uni streams. */
 			if (stream_ctx == NULL) {
 				stream_ctx = h3zero_find_stream(ctx, stream_id);
@@ -1774,6 +1775,7 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 		case picoquic_callback_almost_ready:
 		case picoquic_callback_ready:
 			/* TODO: Check that the transport parameters are what Http3 expects */
+			fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_ready\n", picoquic_current_time());
 			break;
 		default:
 			/* unexpected -- just ignore. */

@@ -1257,6 +1257,8 @@ int main(int argc, char** argv)
     uint64_t stop_sending_after = -1;
     int ret;
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+
 #ifdef _WINDOWS
     WSADATA wsaData = { 0 };
     (void)WSA_START(MAKEWORD(2, 2), &wsaData);

@@ -465,7 +465,7 @@ int picoquic_demo_client_callback(picoquic_cnx_t* cnx,
              */
             if(picoquic_current_time() > ctx->stop_sending_time) {
                 picoquic_stop_sending(cnx, stream_id, 0);
-                fprintf(stdout, "Request to stop sending.\n");
+                fprintf(stdout, "%" PRIu64 "\tRequest to stop sending.\n", picoquic_current_time());
             }
 
             if (!stream_ctx->is_file_open && ctx->no_disk == 0) {
@@ -612,6 +612,7 @@ int picoquic_demo_client_callback(picoquic_cnx_t* cnx,
         }
     case picoquic_callback_almost_ready:
     case picoquic_callback_ready:
+        fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_ready\n", picoquic_current_time());
         ctx->connection_ready = 1;
         break;
     case picoquic_callback_request_alpn_list:
