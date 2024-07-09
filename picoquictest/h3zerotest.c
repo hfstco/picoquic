@@ -1535,7 +1535,7 @@ static int demo_server_test(char const * alpn, picoquic_stream_data_cb_fn server
     picoquic_tp_t client_parameters;
     picoquic_connection_id_t initial_cid = { {0xde, 0xc1, 3, 4, 5, 6, 7, 8}, 8 };
 
-    ret = picoquic_demo_client_initialize_context(&callback_ctx, demo_scenario, nb_scenario, alpn, 0, delay_fin);
+    ret = picoquic_demo_client_initialize_context(&callback_ctx, demo_scenario, nb_scenario, alpn, 0, delay_fin, UINT64_MAX);
     callback_ctx.out_dir = out_dir;
     callback_ctx.no_print = 1;
 
@@ -2803,7 +2803,7 @@ http_stress_client_context_t* http_stress_client_create(size_t client_id, uint64
             else {
                 size_t scenario_id = client_id % nb_http_stress_scenario;
 
-                ret = picoquic_demo_client_initialize_context(&ctx->callback_ctx, http_stress_scenario_list[scenario_id].sc, http_stress_scenario_list[scenario_id].sc_nb, alpn, 1 /* No disk!*/, 0);
+                ret = picoquic_demo_client_initialize_context(&ctx->callback_ctx, http_stress_scenario_list[scenario_id].sc, http_stress_scenario_list[scenario_id].sc_nb, alpn, 1 /* No disk!*/, 0, UINT64_MAX);
                 if (ret == 0) {
                     picoquic_set_callback(ctx->cnx_client, picoquic_demo_client_callback, &ctx->callback_ctx);
                     ctx->callback_ctx.no_print = 1;
@@ -3325,7 +3325,7 @@ static int h3_grease_test_one(int server_test)
     picoquic_connection_id_t initial_cid = { {0x68, 0xea, 0x5e, 0, 0, 0, 0, 0}, 8 };
     initial_cid.id[3] = (uint8_t)server_test;
 
-    ret = picoquic_demo_client_initialize_context(&callback_ctx, demo_test_scenario, nb_demo_test_scenario, PICOHTTP_ALPN_H3_LATEST, 0, 0);
+    ret = picoquic_demo_client_initialize_context(&callback_ctx, demo_test_scenario, nb_demo_test_scenario, PICOHTTP_ALPN_H3_LATEST, 0, 0, UINT64_MAX);
     callback_ctx.out_dir = NULL;
     callback_ctx.no_print = 1;
 
