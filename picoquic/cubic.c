@@ -223,6 +223,8 @@ static void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
+                fprintf(stdout, "picoquic_congestion_notification_acknowledgement cwin=%" PRIu64 "\n", path_x->cwin);
+
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     picoquic_hystart_increase(path_x, &cubic_state->rtt_filter, ack_state->nb_bytes_acknowledged);
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
