@@ -169,8 +169,16 @@ static void picoquic_cubic_enter_recovery(picoquic_cnx_t * cnx,
             /* Compute the inital window for both Reno and Cubic */
             double W_cubic = picoquic_cubic_W_cubic(cubic_state, current_time);
             uint64_t win_cubic = (uint64_t)(W_cubic * (double)path_x->send_mtu);
+            cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
 
-            path_x->cwin = win_cubic;
+            /* Pick the largest */
+            if (win_cubic > cubic_state->W_reno) {
+                /* if cubic is larger than threshold, switch to cubic mode */
+                path_x->cwin = win_cubic;
+            }
+            else {
+                path_x->cwin = (uint64_t)cubic_state->W_reno;
+            }
         }
     }
 }
@@ -189,8 +197,9 @@ static void picoquic_cubic_correct_spurious(picoquic_path_t* path_x,
         cubic_state->W_max = cubic_state->W_last_max;
         picoquic_cubic_enter_avoidance(cubic_state, cubic_state->previous_start_of_epoch);
         double W_cubic = picoquic_cubic_W_cubic(cubic_state, current_time);
+        cubic_state->W_reno = W_cubic * (double)path_x->send_mtu;
         cubic_state->ssthresh = (uint64_t)(cubic_state->W_max * cubic_state->beta * (double)path_x->send_mtu);
-        path_x->cwin = W_cubic * (double)path_x->send_mtu;
+        path_x->cwin = (uint64_t)cubic_state->W_reno;
     }
 }
 
@@ -218,6 +227,7 @@ static void picoquic_cubic_notify(
                     picoquic_hystart_increase(path_x, &cubic_state->rtt_filter, ack_state->nb_bytes_acknowledged);
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= cubic_state->ssthresh) {
+                        cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
                         path_x->is_ssthresh_initialized = 1;
                         picoquic_cubic_enter_avoidance(cubic_state, current_time);
                     }
@@ -250,6 +260,7 @@ static void picoquic_cubic_notify(
                     cubic_state->ssthresh = path_x->cwin;
                     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
                     cubic_state->W_last_max = cubic_state->W_max;
+                    cubic_state->W_reno = ((double)path_x->cwin);
                     path_x->is_ssthresh_initialized = 1;
                     picoquic_cubic_enter_avoidance(cubic_state, current_time);
                     /* apply a correction to enter the test phase immediately */
@@ -270,7 +281,6 @@ static void picoquic_cubic_notify(
                 picoquic_cubic_reset(cubic_state, path_x, current_time);
                 break;
             case picoquic_congestion_notification_seed_cwin:
-                fprintf(stdout, "picoquic_congestion_notification_seed_cwin cwin=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged);
                 if (cubic_state->ssthresh == UINT64_MAX) {
                     if (path_x->cwin < ack_state->nb_bytes_acknowledged) {
                         path_x->cwin = ack_state->nb_bytes_acknowledged;
@@ -278,6 +288,7 @@ static void picoquic_cubic_notify(
                     cubic_state->ssthresh = ack_state->nb_bytes_acknowledged;
                     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
                     cubic_state->W_last_max = cubic_state->W_max;
+                    cubic_state->W_reno = ((double)path_x->cwin);
                     path_x->is_ssthresh_initialized = 1;
                     picoquic_cubic_enter_avoidance(cubic_state, current_time);
                 }
@@ -340,8 +351,17 @@ static void picoquic_cubic_notify(
                     /* Compute the cubic formula */
                     W_cubic = picoquic_cubic_W_cubic(cubic_state, current_time);
                     win_cubic = (uint64_t)(W_cubic * (double)path_x->send_mtu);
+                    /* Also compute the Reno formula */
+                    cubic_state->W_reno += ((double)ack_state->nb_bytes_acknowledged) * ((double)path_x->send_mtu) / cubic_state->W_reno;
 
-                    path_x->cwin = win_cubic;
+                    /* Pick the largest */
+                    if (win_cubic > cubic_state->W_reno) {
+                        /* if cubic is larger than threshold, switch to cubic mode */
+                        path_x->cwin = win_cubic;
+                    }
+                    else {
+                        path_x->cwin = (uint64_t)cubic_state->W_reno;
+                    }
                 }
                 break;
             case picoquic_congestion_notification_repeat:
