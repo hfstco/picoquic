@@ -3342,6 +3342,7 @@ int picoquic_prepare_packet_almost_ready(picoquic_cnx_t* cnx, picoquic_path_t* p
 
         if (picoquic_cnx_is_still_logging(cnx)) {
             picoquic_log_cc_dump(cnx, current_time);
+            picoquic_log_cr_dump(cnx, current_time);
         }
     }
 
@@ -3772,6 +3773,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t* path_x, 
 
         if (ret == 0 && picoquic_cnx_is_still_logging(cnx)) {
             picoquic_log_cc_dump(cnx, current_time);
+            picoquic_log_cr_dump(cnx, current_time);
         }
     }
     return ret;

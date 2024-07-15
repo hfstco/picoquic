@@ -90,10 +90,20 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
 /* The BDP seed is validated upon receiving the first RTT measurement */
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
+    unsigned int saved_cwnd = 0;
+    if (cnx->quic->forced_saved_cwnd != 0 && cnx->quic->forced_saved_rtt != 0) {
+        uint8_t* ip_addr;
+        uint8_t ip_addr_length;
+        picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+        picoquic_seed_bandwidth(cnx, cnx->quic->forced_saved_rtt, cnx->quic->forced_saved_cwnd, ip_addr, ip_addr_length);
+    }
+
+    /* TODO "rtt_not_validated" trigger for qlog. */
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
         !cnx->cwin_notified_from_seed &&
-        cnx->seed_rtt_min <= rtt_sample &&
-        (rtt_sample - cnx->seed_rtt_min) < cnx->seed_rtt_min / 4) {
+        rtt_sample >= cnx->seed_rtt_min / 2 &&
+        rtt_sample <= cnx->seed_rtt_min  * 10 &&
+        path_x->cwin < cnx->seed_cwin / 2) {
         uint8_t* ip_addr;
         uint8_t ip_addr_length;
         picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
@@ -102,12 +112,13 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
             memcmp(ip_addr, cnx->seed_ip_addr, ip_addr_length) == 0) {
             picoquic_per_ack_state_t ack_state = { 0 };
             ack_state.nb_bytes_acknowledged = (uint64_t)cnx->seed_cwin;
+            ack_state.rtt_measurement = (uint64_t)cnx->seed_rtt_min;
             cnx->cwin_notified_from_seed = 1;
             cnx->congestion_alg->alg_notify(cnx, path_x,
                 picoquic_congestion_notification_seed_cwin,
                 &ack_state, current_time);
+            }
         }
-    }
 }
 
 
@@ -345,7 +356,15 @@ void picoquic_update_path_rtt(picoquic_cnx_t* cnx, picoquic_path_t* old_path, pi
                 &ack_state, current_time);
         }
 
-        /* On very first sample, apply the saved BDP */
+        /* *Reconnaissance Phase (Rate-limited sender): If the sender is
+            rate-limited [RFC7661], it might send insufficient data to be
+            able to validate transmission at the higher rate. Careful Resume
+            is allowed to remain in the Reconnaissance Phase and to not
+            transition to the Unvalidated Phase until the sender has more
+            data ready to send in the transmission buffer than is permitted
+            by the current CWND. In some implementations, the decision to
+            enter the Unvalidated Phase could require coordination with the
+            management of buffers in the interface to the higher layers. */
         if (is_first) {
             picoquic_validate_bdp_seed(cnx, old_path, rtt_estimate, current_time);
         }

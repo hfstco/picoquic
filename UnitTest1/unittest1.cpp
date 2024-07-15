@@ -2974,5 +2974,37 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+
+	    TEST_METHOD(careful_resume_cubic) {
+            int ret = careful_resume_cubic_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_cubic_loss) {
+            int ret = careful_resume_cubic_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_newreno) {
+            int ret = careful_resume_newreno_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_newreno_loss) {
+            int ret = careful_resume_newreno_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    /*TEST_METHOD(careful_resume_unit) {
+            int ret = careful_resume_unit_test();
+
+            Assert::AreEqual(ret, 0);
+        }*/
+
+        /* TODO Add other test cases (loss in recon/unval/...) here? I think we don't need them in addition to the unit tests. */
     };
 }
