@@ -94,7 +94,10 @@ static option_table_line_t option_table[] = {
     { picoquic_option_Version_Upgrade, 'U', "version_upgrade", 1, "", "Version upgrade if server agrees, e.g. -U 6b3343cf" },
     { picoquic_option_No_GSO, '0', "no_gso", 0, "", "Do not use UDP GSO or equivalent" },
     { picoquic_option_BDP_frame, 'j', "bdp", 1, "number", "use bdp extension frame(1) or don\'t (0). Default=0" },
-    { picoquic_option_CWIN_MAX, 'W', "cwin_max", 1, "bytes", "Max value for CWIN. Default=UINT64_MAX"},
+    { picoquic_option_CWIN_MAX, 'W', "cwin_max", 1, "bytes", "Max value for CWIN. Default=UINT64_MAX" },
+    { picoquic_option_CAREFUL_RESUME, 'J', "careful_resume", 0, "", "Enable careful resume." },
+    { picoquic_option_FORCED_SAVED_CWND, 'Y', "forced_saved_cwnd", 1, "3750000", "Set saved_cwnd forcefully."},
+    { picoquic_option_FORCED_SAVED_RTT, 'Z', "forced_saved_rtt", 1, "600000", "Set saved_rtt forcefully."},
     { picoquic_option_HELP, 'h', "help", 0, "", "This help message" }
 };
 
@@ -494,6 +497,31 @@ static int config_set_option(option_table_line_t* option_desc, option_param_t* p
         }
         break;
     }
+    case picoquic_option_CAREFUL_RESUME:
+        config->use_careful_resume = 1;
+        break;
+    case picoquic_option_FORCED_SAVED_CWND: {
+        int v = config_atoi(params, nb_params, 0, &ret);
+        if (ret != 0 || v < 0) {
+            fprintf(stderr, "Invalid forced_saved_cwnd max option: %s\n", config_optval_param_string(opval_buffer, 256, params, nb_params, 0));
+            ret = (ret == 0) ? -1 : ret;
+        }
+        else {
+            config->forced_saved_cwnd = (v==0)?UINT64_MAX:v;
+        }
+        break;
+    }
+    case picoquic_option_FORCED_SAVED_RTT: {
+        int v = config_atoi(params, nb_params, 0, &ret);
+        if (ret != 0 || v < 0) {
+            fprintf(stderr, "Invalid forced_saved_rtt max option: %s\n", config_optval_param_string(opval_buffer, 256, params, nb_params, 0));
+            ret = (ret == 0) ? -1 : ret;
+        }
+        else {
+            config->forced_saved_rtt = (v==0)?UINT64_MAX:v;
+        }
+        break;
+    }
     case picoquic_option_HELP:
         ret = -1;
         break;
@@ -772,6 +800,10 @@ picoquic_quic_t* picoquic_create_and_configure(picoquic_quic_config_t* config,
         }
 
         picoquic_set_default_congestion_algorithm(quic, cc_algo);
+
+        picoquic_set_careful_resume(quic, config->use_careful_resume);
+        picoquic_set_forced_saved_cwnd(quic, config->forced_saved_cwnd);
+        picoquic_set_forced_saved_rtt(quic, config->forced_saved_rtt);
 
         picoquic_set_default_spinbit_policy(quic, config->spinbit_policy);
         picoquic_set_default_lossbit_policy(quic, config->lossbit_policy);

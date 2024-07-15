@@ -24,29 +24,25 @@
 #include <string.h>
 #include "cc_common.h"
 
-uint64_t picoquic_cc_get_sequence_number(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
-{
+uint64_t picoquic_cc_get_sequence_number(picoquic_cnx_t* cnx, picoquic_path_t* path_x) {
     uint64_t ret = path_x->path_packet_number;
 
     return ret;
 }
 
-uint64_t picoquic_cc_get_ack_number(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
-{
+uint64_t picoquic_cc_get_ack_number(picoquic_cnx_t* cnx, picoquic_path_t* path_x) {
     uint64_t ret = path_x->path_packet_acked_number;
 
     return ret;
 }
 
-uint64_t picoquic_cc_get_ack_sent_time(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
-{
+uint64_t picoquic_cc_get_ack_sent_time(picoquic_cnx_t* cnx, picoquic_path_t* path_x) {
     uint64_t ret = path_x->path_packet_acked_time_sent;
     return ret;
 }
 
 
-void picoquic_filter_rtt_min_max(picoquic_min_max_rtt_t * rtt_track, uint64_t rtt)
-{
+void picoquic_filter_rtt_min_max(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt) {
     int x = rtt_track->sample_current;
     int x_max;
 
@@ -58,7 +54,7 @@ void picoquic_filter_rtt_min_max(picoquic_min_max_rtt_t * rtt_track, uint64_t rt
         rtt_track->is_init = 1;
         rtt_track->sample_current = 0;
     }
-    
+
     x_max = (rtt_track->is_init) ? PICOQUIC_MIN_MAX_RTT_SCOPE : x + 1;
 
     rtt_track->sample_min = rtt_track->samples[0];
@@ -67,15 +63,15 @@ void picoquic_filter_rtt_min_max(picoquic_min_max_rtt_t * rtt_track, uint64_t rt
     for (int i = 1; i < x_max; i++) {
         if (rtt_track->samples[i] < rtt_track->sample_min) {
             rtt_track->sample_min = rtt_track->samples[i];
-        } else if (rtt_track->samples[i] > rtt_track->sample_max) {
+        }
+        else if (rtt_track->samples[i] > rtt_track->sample_max) {
             rtt_track->sample_max = rtt_track->samples[i];
         }
     }
 }
 
 int picoquic_hystart_loss_test(picoquic_min_max_rtt_t* rtt_track, picoquic_congestion_notification_t event,
-    uint64_t lost_packet_number, double error_rate_max)
-{
+                               uint64_t lost_packet_number, double error_rate_max) {
     int ret = 0;
     uint64_t next_number = rtt_track->last_lost_packet_number;
 
@@ -106,8 +102,8 @@ int picoquic_hystart_loss_test(picoquic_min_max_rtt_t* rtt_track, picoquic_conge
     return ret;
 }
 
-int picoquic_hystart_loss_volume_test(picoquic_min_max_rtt_t* rtt_track, picoquic_congestion_notification_t event,  uint64_t nb_bytes_newly_acked, uint64_t nb_bytes_newly_lost)
-{
+int picoquic_hystart_loss_volume_test(picoquic_min_max_rtt_t* rtt_track, picoquic_congestion_notification_t event,
+                                      uint64_t nb_bytes_newly_acked, uint64_t nb_bytes_newly_lost) {
     int ret = 0;
 
     rtt_track->smoothed_bytes_lost_16 -= rtt_track->smoothed_bytes_lost_16 / 16;
@@ -116,7 +112,8 @@ int picoquic_hystart_loss_volume_test(picoquic_min_max_rtt_t* rtt_track, picoqui
     rtt_track->smoothed_bytes_sent_16 += nb_bytes_newly_acked + nb_bytes_newly_lost;
 
     if (rtt_track->smoothed_bytes_sent_16 > 0) {
-        rtt_track->smoothed_drop_rate = ((double)rtt_track->smoothed_bytes_lost_16) / ((double)rtt_track->smoothed_bytes_sent_16);
+        rtt_track->smoothed_drop_rate = ((double)rtt_track->smoothed_bytes_lost_16) / ((double)rtt_track->
+            smoothed_bytes_sent_16);
     }
     else {
         rtt_track->smoothed_drop_rate = 0;
@@ -135,11 +132,11 @@ int picoquic_hystart_loss_volume_test(picoquic_min_max_rtt_t* rtt_track, picoqui
     return ret;
 }
 
-int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled)
-{
+int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time,
+                          uint64_t current_time, int is_one_way_delay_enabled) {
     int ret = 0;
 
-    if(current_time > rtt_track->last_rtt_sample_time + 1000) {
+    if (current_time > rtt_track->last_rtt_sample_time + 1000) {
         picoquic_filter_rtt_min_max(rtt_track, rtt_measurement);
         rtt_track->last_rtt_sample_time = current_time;
 
@@ -170,13 +167,11 @@ int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measur
     return ret;
 }
 
-void picoquic_hystart_increase(picoquic_path_t * path_x, picoquic_min_max_rtt_t* rtt_filter, uint64_t nb_delivered)
-{
+void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* rtt_filter, uint64_t nb_delivered) {
     path_x->cwin += nb_delivered;
 }
 
-uint64_t picoquic_cc_increased_window(picoquic_cnx_t* cnx, uint64_t previous_window)
-{
+uint64_t picoquic_cc_increased_window(picoquic_cnx_t* cnx, uint64_t previous_window) {
     uint64_t new_window;
     if (cnx->path[0]->rtt_min <= PICOQUIC_TARGET_RENO_RTT) {
         new_window = previous_window * 2;
@@ -184,7 +179,9 @@ uint64_t picoquic_cc_increased_window(picoquic_cnx_t* cnx, uint64_t previous_win
     else {
         double w = (double)previous_window;
         w /= (double)PICOQUIC_TARGET_RENO_RTT;
-        w *= (cnx->path[0]->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT)? PICOQUIC_TARGET_SATELLITE_RTT: cnx->path[0]->rtt_min;
+        w *= (cnx->path[0]->rtt_min > PICOQUIC_TARGET_SATELLITE_RTT)
+                 ? PICOQUIC_TARGET_SATELLITE_RTT
+                 : cnx->path[0]->rtt_min;
         new_window = (uint64_t)w;
     }
     return new_window;

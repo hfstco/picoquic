@@ -30,6 +30,9 @@
 #include "picotls.h"
 #include "picoquic_unified_log.h"
 #include "picoquic_binlog.h"
+#include "cc_common.h"
+#include "cubic.h"
+#include "newreno.h"
 
 static const uint8_t* picoquic_log_fixed_skip(const uint8_t* bytes, const uint8_t* bytes_max, size_t size)
 {
@@ -1153,7 +1156,7 @@ void binlog_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time)
          * all available paths, and write the data for each path if multipath is enabled.
          * verify that it works for CSV and QLOG formats.
          */
-        binlog_compose_event_header(ps_msg, &cnx->initial_cnxid, current_time, 
+        binlog_compose_event_header(ps_msg, &cnx->initial_cnxid, current_time,
             binlog_get_path_id(cnx, path), picoquic_log_event_cc_update);
 
         bytewrite_vint(ps_msg, pkt_ctx->send_sequence);
@@ -1207,6 +1210,134 @@ void binlog_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time)
         bytewrite_vint(ps_msg, path->peak_bandwidth_estimate);
         bytewrite_vint(ps_msg, path->bytes_in_transit);
         bytewrite_vint(ps_msg, path->last_bw_estimate_path_limited);
+
+        bytestream_buf stream_head;
+        bytestream* ps_head = bytestream_buf_init(&stream_head, BYTESTREAM_MAX_BUFFER_SIZE);
+
+        bytewrite_int32(ps_head, (uint32_t)bytestream_length(ps_msg));
+
+        (void)fwrite(bytestream_data(ps_head), bytestream_length(ps_head), 1, cnx->f_binlog);
+        (void)fwrite(bytestream_data(ps_msg), bytestream_length(ps_msg), 1, cnx->f_binlog);
+    }
+}
+
+/*
+ * Log the state of careful resume.
+ * Call either just after processing a received packet, or just after
+ * sending a packet.
+ */
+
+void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
+{
+    if (cnx->f_binlog == NULL) {
+        return;
+    }
+
+    bytestream_buf stream_msg;
+    bytestream* ps_msg = bytestream_buf_init(&stream_msg, BYTESTREAM_MAX_BUFFER_SIZE);
+    int path_max = (cnx->is_multipath_enabled || cnx->is_simple_multipath_enabled) ? cnx->nb_paths : 1;
+
+    for (int path_id = 0; path_id < path_max; path_id++)
+    {
+        picoquic_path_t* path = cnx->path[path_id];
+        picoquic_packet_context_t* pkt_ctx = &cnx->pkt_ctx[picoquic_packet_context_application];
+        if (cnx->is_multipath_enabled && cnx->path[path_id]->p_remote_cnxid != NULL) {
+            pkt_ctx = &cnx->path[path_id]->p_remote_cnxid->pkt_ctx;
+        }
+
+        if (!path->is_cr_data_updated) {
+            continue;
+        }
+        path->is_cr_data_updated = 0;
+
+        /* Common chunk header */
+        /* TODO: understand how to provide per path data -- most probably do a loop on
+         * all available paths, and write the data for each path if multipath is enabled.
+         * verify that it works for CSV and QLOG formats.
+         */
+        binlog_compose_event_header(ps_msg, &cnx->initial_cnxid, current_time,
+            binlog_get_path_id(cnx, path), picoquic_log_event_cr_update);
+
+        bytewrite_vint(ps_msg, pkt_ctx->send_sequence);
+
+        if (pkt_ctx->highest_acknowledged != UINT64_MAX) {
+            bytewrite_vint(ps_msg, 1);
+            bytewrite_vint(ps_msg, pkt_ctx->highest_acknowledged);
+            bytewrite_vint(ps_msg, pkt_ctx->highest_acknowledged_time - cnx->start_time);
+            bytewrite_vint(ps_msg, pkt_ctx->latest_time_acknowledged - cnx->start_time);
+        }
+        else {
+            bytewrite_vint(ps_msg, 0);
+        }
+
+        picoquic_cr_state_t *cr_state;
+        switch(cnx->congestion_alg->congestion_algorithm_number) {
+            case PICOQUIC_CC_ALGO_NUMBER_CUBIC: {
+                picoquic_cubic_state_t *cubic_state = path->congestion_alg_state;
+                cr_state = &cubic_state->cr_state;
+                }
+                break;
+            case PICOQUIC_CC_ALGO_NUMBER_NEW_RENO: {
+                picoquic_newreno_state_t* nr_state = path->congestion_alg_state;
+                cr_state = &nr_state->nrss.cr_state;
+                }
+                break;
+            default:
+                cr_state = NULL;
+                break;
+        }
+
+        if (cr_state != NULL) {
+            /* CarefulResumePhase =
+             *      "reconnaissance" /
+             *      "unvalidated" /
+             *      "validating" /
+             *      "normal" /
+             *      "safe_retreat"
+             */
+            /* ? old: CarefulResumePhase */
+            bytewrite_vint(ps_msg, cr_state->previous_alg_state);
+
+            /* new: CarefulResumePhase */
+            bytewrite_vint(ps_msg, cr_state->alg_state);
+
+            /* CarefulResumeStateParameters = {
+             *      pipesize: uint,
+             *      cr_mark: uint,
+             *      ? congestion_window: uint,
+             *      ? ssthresh: uint
+             * }
+             */
+            /* state_data: CarefulResumeStateParameters */
+            bytewrite_vint(ps_msg, cr_state->pipesize);
+            bytewrite_vint(ps_msg, cr_state->cr_mark);
+            bytewrite_vint(ps_msg, cr_state->cwin);
+            bytewrite_vint(ps_msg, cr_state->ssthresh);
+
+            /* CarefulResumeRestoredParameters = {
+             *      previous_congestion_window: uint,
+             *      previous_rtt: float32
+             * }
+             */
+            /* ? restored_data: CarefulResumeRestoredParameters */
+            bytewrite_vint(ps_msg, cr_state->saved_cwnd);
+            bytewrite_vint(ps_msg, cr_state->saved_rtt);
+
+            /* ? trigger
+             *      ; for the Safe Retreat phase
+             *      "packet_loss" /
+             *      ; for the Unvalidated phase
+             *      "congestion_window_limited" /
+             *      ; for the Validating or Normal phases
+             *      "cr_mark_acknowledged" /
+             *      ; for the Normal phase, when CR not allowed
+             *      "rtt_not_validated" /
+             *      ; for the Safe Retreat phase
+             *      "ECN_CE" /
+             *      ; for the Normal phase 1 RTT after a congestion event
+             *      "exit_recovery" */
+            bytewrite_vint(ps_msg, cr_state->trigger);
+        }
 
         bytestream_buf stream_head;
         bytestream* ps_head = bytestream_buf_init(&stream_head, BYTESTREAM_MAX_BUFFER_SIZE);
@@ -1317,7 +1448,8 @@ struct st_picoquic_unified_logging_t binlog_functions = {
     binlog_picotls_ticket_ex,
     binlog_new_connection,
     binlog_close_connection,
-    binlog_cc_dump
+    binlog_cc_dump,
+    binlog_cr_dump
 };
 
 int picoquic_set_binlog(picoquic_quic_t* quic, char const* binlog_dir)

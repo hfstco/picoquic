@@ -27,7 +27,7 @@
 #include "picoquic_config.h"
 #include "picoquictest_internal.h"
 
-static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:M:e:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:h";
+static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:M:e:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:Jh";
 
 int config_option_letters_test()
 {
@@ -76,6 +76,9 @@ static picoquic_quic_config_t param1 = {
     1, /* unsigned int do_preemptive_repeat : 1; */
     1, /* unsigned int do_not_use_gso : 1 */
     0, /* disable port blocking */
+    1,
+    3750000,
+    600000,
     /* Server only */
     "/data/www/", /* char const* www_dir; */
     { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
@@ -126,6 +129,7 @@ static char const* config_argv1[] = {
     "-j", "1",
     "-0",
     "-i", "0N8C-000123",
+    "-J",
     NULL
 };
 
@@ -158,6 +162,9 @@ static picoquic_quic_config_t param2 = {
     0, /* unsigned int do_preemptive_repeat : 1; */
     0, /* unsigned int do_not_use_gso : 1 */
     1, /* disable port blocking */
+    0,
+    3750000,
+    600000,
     /* Server only */
     NULL, /* char const* www_dir; */
     { 0 }, /* Reset seed */
@@ -341,6 +348,7 @@ int config_test_compare(const picoquic_quic_config_t* expected, const picoquic_q
     ret |= config_test_compare_int("bdp", expected->bdp_frame_option, actual->bdp_frame_option);
     ret |= config_test_compare_int("idle_timeout", expected->idle_timeout, actual->idle_timeout);
     ret |= config_test_compare_uint64("cwin_max", expected->cwin_max, actual->cwin_max);
+    ret |= config_test_compare_uint64("careful_resume", expected->use_careful_resume, actual->use_careful_resume);
     return ret;
 }
 

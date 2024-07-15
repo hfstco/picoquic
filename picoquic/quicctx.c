@@ -4739,6 +4739,22 @@ void picoquic_set_default_congestion_algorithm_by_name(picoquic_quic_t* quic, ch
 }
 
 /*
+ * Enable careful resume.
+ */
+
+void picoquic_set_careful_resume(picoquic_quic_t* quic, int use_careful_resume) {
+    quic->use_careful_resume = use_careful_resume;
+}
+
+void picoquic_set_forced_saved_cwnd(picoquic_quic_t* quic, unsigned int forced_saved_cwnd) {
+    quic->forced_saved_cwnd = forced_saved_cwnd;
+}
+
+void picoquic_set_forced_saved_rtt(picoquic_quic_t* quic, unsigned int forced_saved_rtt) {
+    quic->forced_saved_rtt = forced_saved_rtt;
+}
+
+/*
  * Set the optimistic ack policy
  */
 

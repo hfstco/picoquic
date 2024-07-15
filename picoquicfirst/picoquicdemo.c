@@ -311,6 +311,19 @@ int quic_server(const char* server_name, picoquic_quic_config_t * config, int ju
                 ret = -1;
             }
             else {
+                /* increase/disable max_data_limit for careful resume test */
+                /* TODO this is a workaround to achive a full jump because we will be limited by flow control in our test cases */
+                picoquic_tp_t tp;
+                memset(&tp, 0, sizeof(picoquic_tp_t));
+                picoquic_init_transport_parameters(&tp, 1);
+
+                tp.initial_max_data = UINT64_MAX;
+                tp.initial_max_stream_data_bidi_local = UINT64_MAX;
+                tp.initial_max_stream_data_bidi_remote = UINT64_MAX;
+                tp.initial_max_stream_data_uni = UINT64_MAX;
+
+                picoquic_set_default_tp(qserver, &tp);
+
                 picoquic_set_key_log_file_from_env(qserver);
 
                 picoquic_set_alpn_select_fn(qserver, picoquic_demo_server_callback_select_alpn);
@@ -882,6 +895,19 @@ int quic_client(const char* ip_address_text, int server_port,
             ret = -1;
         }
         else {
+            /* increase/disable max_data_limit for careful resume test */
+            /* TODO this is a workaround to achive a full jump because we will be limited by flow control in our test cases */
+            picoquic_tp_t tp;
+            memset(&tp, 0, sizeof(picoquic_tp_t));
+            picoquic_init_transport_parameters(&tp, 1);
+
+            tp.initial_max_data = UINT64_MAX;
+            tp.initial_max_stream_data_bidi_local = UINT64_MAX;
+            tp.initial_max_stream_data_bidi_remote = UINT64_MAX;
+            tp.initial_max_stream_data_uni = UINT64_MAX;
+
+            picoquic_set_transport_parameters(cnx_client, &tp);
+
             /* Set PMTUD policy to delayed on the client, leave to default=basic on server */
             picoquic_cnx_set_pmtud_policy(cnx_client, picoquic_pmtud_delayed);
             picoquic_set_default_pmtud_policy(qclient, picoquic_pmtud_delayed);
@@ -1257,7 +1283,6 @@ int main(int argc, char** argv)
     uint64_t stop_sending_after = -1;
     int ret;
 
-    /* Disable stdout buffering. */
     setvbuf(stdout, NULL, _IONBF, 0);
 
 #ifdef _WINDOWS
