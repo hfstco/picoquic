@@ -1257,6 +1257,7 @@ int main(int argc, char** argv)
     uint64_t stop_sending_after = -1;
     int ret;
 
+    /* Disable stdout buffering. */
     setvbuf(stdout, NULL, _IONBF, 0);
 
 #ifdef _WINDOWS
