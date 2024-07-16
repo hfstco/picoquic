@@ -101,6 +101,60 @@ int picoquic_cc_bin_to_csv(FILE * f_binlog, FILE * f_csvlog)
     return ret;
 }
 
+int picoquic_cr_log_file_to_csv(char const* bin_cr_log_name, char const* csv_cr_log_name)
+{
+    /* Open the bin file for reading, the csv file for writing */
+    int ret = 0;
+    uint64_t log_time = 0;
+    uint16_t flags;
+    FILE* f_binlog = picoquic_open_cr_log_file_for_read(bin_cr_log_name, &flags, &log_time); /* TODO refactor reuse cc method. */
+    FILE* f_csvlog = picoquic_file_open(csv_cr_log_name, "w");
+
+    if (f_binlog == NULL || f_csvlog == NULL) {
+        ret = -1;
+    } else {
+        ret = picoquic_cr_bin_to_csv(f_binlog, f_csvlog);
+    }
+    (void)picoquic_file_close(f_csvlog);
+    (void)picoquic_file_close(f_binlog);
+
+    return ret;
+}
+
+int picoquic_cr_bin_to_csv(FILE * f_binlog, FILE * f_csvlog)
+{
+    int ret = 0;
+
+    ret |= fprintf(f_csvlog, "time, ") <= 0;
+    ret |= fprintf(f_csvlog, "path, ") <= 0;
+    ret |= fprintf(f_csvlog, "sequence, ") <= 0;
+    ret |= fprintf(f_csvlog, "highest ack, ") <= 0;
+    ret |= fprintf(f_csvlog, "high ack time, ") <= 0;
+    ret |= fprintf(f_csvlog, "last time ack, ") <= 0;
+    ret |= fprintf(f_csvlog, "old, ") <= 0;
+    ret |= fprintf(f_csvlog, "new, ") <= 0;
+    ret |= fprintf(f_csvlog, "pipesize, ") <= 0;
+    ret |= fprintf(f_csvlog, "cr_mark, ") <= 0;
+    ret |= fprintf(f_csvlog, "congestion_window, ") <= 0;
+    ret |= fprintf(f_csvlog, "ssthresh, ") <= 0;
+    ret |= fprintf(f_csvlog, "previous_congestion_window, ") <= 0;
+    ret |= fprintf(f_csvlog, "previous_rtt, ") <= 0;
+    ret |= fprintf(f_csvlog, "trigger, ") <= 0;
+    ret |= fprintf(f_csvlog, "\n") <= 0;
+
+    if (ret == 0) {
+
+        csv_cb_data data;
+        data.f = f_csvlog;
+        data.starttime = 0;
+        data.idx = 0;
+
+        ret = fileread_binlog(f_binlog, csv_cb, &data);
+    }
+
+    return ret;
+}
+
 int csv_cb(bytestream * s, void * ptr)
 {
     csv_cb_data * data = (csv_cb_data*)ptr;

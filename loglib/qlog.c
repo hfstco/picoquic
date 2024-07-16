@@ -51,6 +51,17 @@ typedef struct qlog_context_st {
     uint64_t bytes_in_transit;
     uint64_t pacing_packet_time;
 
+    /* Careful resume. */
+    uint64_t old;
+    uint64_t new;
+    uint64_t pipesize;
+    uint64_t cr_mark;
+    uint64_t congestion_window; /* TODO maybe reuse cwin var above? */
+    uint64_t ssthresh;
+    uint64_t previous_congestion_window;
+    uint64_t previous_rtt;
+    uint64_t trigger;
+
     unsigned int trace_flow_id : 1;
     unsigned int key_phase_sent_last : 1;
     unsigned int key_phase_sent : 1;
@@ -1441,6 +1452,141 @@ int qlog_cc_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     return ret;
 }
 
+/* TODO */
+int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
+{
+    int ret = 0;
+
+    uint64_t sequence = 0;
+    uint64_t packet_rcvd = 0;
+    uint64_t highest_ack = UINT64_MAX;
+    uint64_t high_ack_time = 0;
+    uint64_t last_time_ack = 0;
+
+    uint64_t old = 0;
+    uint64_t new = 0;
+
+    uint64_t pipesize = 0;
+    uint64_t cr_mark = 0;
+    uint64_t congestion_window = 0;
+    uint64_t ssthresh = 0;
+
+    uint64_t previous_congestion_window = 0;
+    uint64_t previous_rtt = 0;
+
+    uint64_t trigger = 0;
+
+    qlog_context_t* ctx = (qlog_context_t*)ptr;
+    FILE* f = ctx->f_txtlog;
+
+    ret |= byteread_vint(s, &sequence);
+    ret |= byteread_vint(s, &packet_rcvd);
+    if (packet_rcvd != 0) {
+        ret |= byteread_vint(s, &highest_ack);
+        ret |= byteread_vint(s, &high_ack_time);
+        ret |= byteread_vint(s, &last_time_ack);
+    }
+
+    ret |= byteread_vint(s, &old);
+    ret |= byteread_vint(s, &new);
+
+    ret |= byteread_vint(s, &pipesize);
+    ret |= byteread_vint(s, &cr_mark);
+    ret |= byteread_vint(s, &congestion_window);
+    ret |= byteread_vint(s, &ssthresh);
+
+    ret |= byteread_vint(s, &previous_congestion_window);
+    ret |= byteread_vint(s, &previous_rtt);
+
+    ret |= byteread_vint(s, &trigger);
+
+    if (ret == 0 /* && */) {
+        /* Something changed. Report the event. */
+        int64_t delta_time = time - ctx->start_time;
+        char* comma = "";
+
+        if (ctx->event_count != 0) {
+            fprintf(f, ",\n");
+        }
+        else {
+            fprintf(f, "\n");
+        }
+
+        qlog_event_header(f, ctx, delta_time, path_id, "recovery", "cr_phase");
+
+        if (old != ctx->old) {
+            fprintf(f, "%s\"old\": %" PRIu64, comma, old);
+            ctx->old = old;
+            comma = ",";
+        }
+
+        /* if (new != ctx->new) {
+            fprintf(f, "%s\"new\": %" PRIu64, comma, new);
+            ctx->new = new;
+            comma = ",";
+        }*/
+        fprintf(f, "%s\"new\": %" PRIu64, comma, new);
+        ctx->new = new;
+        comma = ",";
+
+        /*if (pipesize != ctx->pipesize) {
+            fprintf(f, "%s\"pipesize\": %" PRIu64, comma, pipesize);
+            ctx->pipesize = pipesize;
+            comma = ",";
+        }*/
+        fprintf(f, "%s\"pipesize\": %" PRIu64, comma, pipesize);
+        ctx->pipesize = pipesize;
+        comma = ",";
+
+        /*if (cr_mark != ctx->cr_mark) {
+            fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
+            ctx->cr_mark = cr_mark;
+            comma = ",";
+        }*/
+        fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
+        ctx->cr_mark = cr_mark;
+        comma = ",";
+
+        if (congestion_window != ctx->congestion_window) {
+            fprintf(f, "%s\"congestion_window\": %" PRIu64, comma, congestion_window);
+            ctx->congestion_window = congestion_window;
+            comma = ",";
+        }
+
+        if (ssthresh != ctx->ssthresh) {
+            fprintf(f, "%s\"ssthresh\": %" PRIu64, comma, ssthresh);
+            ctx->ssthresh = ssthresh;
+            comma = ",";
+        }
+
+        if (previous_congestion_window != ctx->previous_congestion_window || previous_rtt != ctx->previous_rtt) {
+            fprintf(f, "%s\"previous_congestion_window\": %" PRIu64, comma, previous_congestion_window);
+            ctx->previous_congestion_window = previous_congestion_window;
+            comma = ",";
+            fprintf(f, "%s\"previous_rtt\": %" PRIu64, comma, previous_rtt);
+            ctx->previous_rtt = previous_rtt;
+            comma = ",";
+        }
+
+        /*if (previous_rtt != ctx->previous_rtt) {
+            fprintf(f, "%s\"previous_rtt\": %" PRIu64, comma, previous_rtt);
+            ctx->previous_rtt = previous_rtt;
+            comma = ",";
+        }*/
+
+        if (trigger != ctx->trigger) {
+            fprintf(f, "%s\"trigger\": %" PRIu64, comma, trigger);
+            ctx->trigger = trigger;
+            /* comma = ","; (not useful since last block of function) */
+        }
+
+        fprintf(f, "}]");
+        ctx->event_count++;
+    }
+
+    return ret;
+}
+
 int qlog_info_message(uint64_t time, bytestream* s, void* ptr)
 {
     int ret = 0;
@@ -1580,6 +1726,7 @@ int qlog_convert(const picoquic_connection_id_t* cid, FILE* f_binlog, const char
         ctx.packet_dropped = qlog_packet_dropped;
         ctx.packet_buffered = qlog_packet_buffered;
         ctx.cc_update = qlog_cc_update;
+        ctx.cr_update = qlog_cr_update;
         ctx.info_message = qlog_info_message;
         ctx.ptr = &qlog;
 

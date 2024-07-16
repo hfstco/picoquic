@@ -60,6 +60,7 @@ typedef struct binlog_convert_cb_st {
     int (*packet_dropped)(uint64_t time, uint64_t path_id, bytestream* s, void* ptr);
     int (*packet_buffered)(uint64_t time, uint64_t path_id, bytestream* s, void* ptr);
     int (*cc_update)(uint64_t time, uint64_t path_id, bytestream* s, void* ptr);
+    int (*cr_update)(uint64_t time, uint64_t path_id, bytestream* s, void* ptr);
     int (*info_message)(uint64_t time, bytestream* s, void* ptr);
     int (*connection_end)(uint64_t time, void * ptr);
 
