@@ -187,6 +187,11 @@ static int binlog_convert_event(bytestream * s, void * ptr)
             ret = ctx->callbacks->cc_update(time, path_id, s, cbptr);
         }
         break;
+    case picoquic_log_event_cr_update:
+        if (ret == 0) {
+            ret = ctx->callbacks->cr_update(time, path_id, s, cbptr);
+        }
+        break;
     case picoquic_log_event_info_message:
         if (ret == 0) {
             ret = ctx->callbacks->info_message(time, s, cbptr);
@@ -324,6 +329,51 @@ FILE * picoquic_open_cc_log_file_for_read(char const * bin_cc_log_name, uint16_t
         else if (byteread_int16(ps, &version) != 0 || version != 0x01) {
             ret = -1;
             DBG_PRINTF("Header for file %s requires unsupported version.\n", bin_cc_log_name);
+        }
+        else {
+            ret = byteread_int64(ps, log_time);
+        }
+    }
+
+    if (ret != 0) {
+        bin_log = picoquic_file_close(bin_log);
+    }
+
+    return bin_log;
+}
+
+/* Open the bin file for reading */
+FILE * picoquic_open_cr_log_file_for_read(char const * bin_cr_log_name, uint16_t * flags, uint64_t * log_time)
+{
+    int ret = 0;
+    FILE * bin_log = picoquic_file_open(bin_cr_log_name, "rb");
+    if (bin_log == NULL) {
+        DBG_PRINTF("Cannot open CC file %s.\n", bin_cr_log_name);
+        ret = -1;
+    }
+
+    if (ret == 0) {
+        bytestream_buf stream;
+        bytestream * ps = bytestream_buf_init(&stream, 16);
+
+        uint32_t fcc = 0;
+        uint16_t version = 0;
+
+        if (fread(stream.buf, bytestream_size(ps), 1, bin_log) <= 0) {
+            ret = -1;
+            DBG_PRINTF("Cannot read header for file %s.\n", bin_cr_log_name);
+        }
+        else if (byteread_int32(ps, &fcc) != 0 || fcc != FOURCC('q', 'l', 'o', 'g')) {
+            ret = -1;
+            DBG_PRINTF("Header for file %s does not start with magic number.\n", bin_cr_log_name);
+        }
+        else if (byteread_int16(ps, flags) != 0) {
+            ret = -1;
+            DBG_PRINTF("Header for file %s does include flags.\n", bin_cr_log_name);
+        }
+        else if (byteread_int16(ps, &version) != 0 || version != 0x01) {
+            ret = -1;
+            DBG_PRINTF("Header for file %s requires unsupported version.\n", bin_cr_log_name);
         }
         else {
             ret = byteread_int64(ps, log_time);
