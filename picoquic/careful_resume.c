@@ -194,11 +194,15 @@ void picoquic_cr_notify(
             CR_DEBUG_PRINTF(path_x, "picoquic_congestion_notification_seed_cwin\n");
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
-                    cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
-                    cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
-                    CR_DEBUG_DUMP("saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
-
-                    //picoquic_cr_enter_recon(cr_state, path_x, current_time);
+                    if (ack_state->nb_bytes_acknowledged == UINT64_MAX && ack_state->rtt_measurement == UINT64_MAX) {
+                        cr_state->trigger = picoquic_cr_trigger_rtt_not_validated;
+                        CR_DEBUG_DUMP("path not validated\n");
+                        picoquic_cr_enter_normal(cr_state, path_x, current_time);
+                    } else {
+                        cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
+                        cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
+                        CR_DEBUG_DUMP("saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
+                    }
                     break;
                 default:
                     break;

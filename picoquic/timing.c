@@ -98,7 +98,6 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
         picoquic_seed_bandwidth(cnx, cnx->quic->forced_saved_rtt, cnx->quic->forced_saved_cwnd, ip_addr, ip_addr_length);
     }
 
-    /* TODO "rtt_not_validated" trigger for qlog. */
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
         !cnx->cwin_notified_from_seed &&
         rtt_sample >= cnx->seed_rtt_min / 2 &&
@@ -118,6 +117,14 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
                 picoquic_congestion_notification_seed_cwin,
                 &ack_state, current_time);
             }
+        } else if (cnx->congestion_alg->congestion_algorithm_number == PICOQUIC_CC_ALGO_NUMBER_CUBIC ||
+            cnx->congestion_alg->congestion_algorithm_number == PICOQUIC_CC_ALGO_NUMBER_NEW_RENO) {
+            picoquic_per_ack_state_t ack_state = { 0 };
+            ack_state.nb_bytes_acknowledged = UINT64_MAX;
+            ack_state.rtt_measurement = UINT64_MAX;
+            cnx->congestion_alg->alg_notify(cnx, path_x,
+                picoquic_congestion_notification_seed_cwin,
+                &ack_state, current_time);
         }
 }
 
