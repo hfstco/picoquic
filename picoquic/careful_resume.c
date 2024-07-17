@@ -17,7 +17,7 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
     memset(cr_state, 0, sizeof(picoquic_cr_state_t));
     cr_state->previous_alg_state = picoquic_cr_alg_recon;
     /* Start in recon phase. */
-    cr_state->alg_state = picoquic_cr_alg_recon;
+    //cr_state->alg_state = picoquic_cr_alg_recon;
 
     cr_state->saved_cwnd = UINT64_MAX;
     /* saved_rtt is not part of the careful resume state because it is part of the ticket. */
@@ -31,11 +31,10 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
     cr_state->start_of_epoch = current_time;
     cr_state->previous_start_of_epoch = 0;
 
-    cr_state->cwin = PICOQUIC_CWIN_INITIAL;
+    //cr_state->cwin = PICOQUIC_CWIN_INITIAL;
     cr_state->ssthresh = UINT64_MAX;
 
-    /* Notify qlog. */
-    path_x->is_cr_data_updated = 1;
+    picoquic_cr_enter_recon(cr_state, path_x, current_time);
 }
 
 /* Notify careful resume context. */
@@ -199,7 +198,7 @@ void picoquic_cr_notify(
                     cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
                     CR_DEBUG_DUMP("saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
 
-                    picoquic_cr_enter_recon(cr_state, path_x, current_time);
+                    //picoquic_cr_enter_recon(cr_state, path_x, current_time);
                     break;
                 default:
                     break;
