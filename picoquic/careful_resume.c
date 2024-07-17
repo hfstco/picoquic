@@ -33,6 +33,9 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
 
     cr_state->cwin = PICOQUIC_CWIN_INITIAL;
     cr_state->ssthresh = UINT64_MAX;
+
+    /* Notify qlog. */
+    path_x->is_cr_data_updated = 1;
 }
 
 /* Notify careful resume context. */
