@@ -32,12 +32,12 @@ extern "C" {
 #define PICOQUIC_SMOOTHED_LOSS_THRESHOLD (0.15)
 
 #define CC_DEBUG_PRINTF(path_x, fmt, ...) \
-    printf("\033[0;32m%-15" PRIu64 "%-15" PRIu64 "%-7s" fmt "\033[0m", picoquic_get_quic_time(path_x->cnx->quic), \
+    printf("\033[0;32m%-17" PRIu64 "%-15" PRIu64 "%-7s" fmt "\033[0m", picoquic_get_quic_time(path_x->cnx->quic), \
         picoquic_get_quic_time(path_x->cnx->quic) - picoquic_get_cnx_start_time(path_x->cnx), (path_x->cnx->client_mode) ? "CLIENT" : "SERVER", \
         ##__VA_ARGS__)
 
 #define CC_DEBUG_DUMP(fmt, ...) \
-    printf("\033[0;37m%37s" fmt "\033[0m", "", ##__VA_ARGS__)
+    printf("\033[0;37m%39s" fmt "\033[0m", "", ##__VA_ARGS__)
 
 typedef struct st_picoquic_min_max_rtt_t {
     uint64_t last_rtt_sample_time;
@@ -75,11 +75,11 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
  */
 
 #define CR_DEBUG_PRINTF(path_x, fmt, ...) \
-    printf("\033[0;35m%-15" PRIu64 "%-15" PRIu64 "%-7s" fmt "\033[0m", picoquic_get_quic_time(path_x->cnx->quic), \
+    printf("\033[0;35m%-17" PRIu64 "%-15" PRIu64 "%-7s" fmt "\033[0m", picoquic_get_quic_time(path_x->cnx->quic), \
     picoquic_get_quic_time(path_x->cnx->quic) - picoquic_get_cnx_start_time(path_x->cnx), (path_x->cnx->client_mode) ? "CLIENT" : "SERVER", ##__VA_ARGS__)
 
 #define CR_DEBUG_DUMP(fmt, ...) \
-    printf("\033[0;37m%37s" fmt "\033[0m", "", ##__VA_ARGS__)
+    printf("\033[0;37m%39s" fmt "\033[0m", "", ##__VA_ARGS__)
 
 typedef enum {
     picoquic_cr_trigger_packet_loss,
