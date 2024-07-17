@@ -15,9 +15,9 @@
 void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time) {
     CR_DEBUG_PRINTF(path_x, "picoquic_cr_reset(unique_path_id=%" PRIu64 ")\n", path_x->unique_path_id);
     memset(cr_state, 0, sizeof(picoquic_cr_state_t));
-    cr_state->previous_alg_state = picoquic_cr_alg_normal;
+    cr_state->previous_alg_state = picoquic_cr_alg_recon;
     /* Start in recon phase. */
-    cr_state->alg_state = picoquic_cr_alg_normal;
+    cr_state->alg_state = picoquic_cr_alg_recon;
 
     cr_state->saved_cwnd = UINT64_MAX;
     /* saved_rtt is not part of the careful resume state because it is part of the ticket. */
@@ -191,7 +191,7 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_seed_cwin:
             CR_DEBUG_PRINTF(path_x, "picoquic_congestion_notification_seed_cwin\n");
             switch (cr_state->alg_state) {
-                case picoquic_cr_alg_normal:
+                case picoquic_cr_alg_recon:
                     cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
                     cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
                     CR_DEBUG_DUMP("saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
