@@ -2387,8 +2387,8 @@ int picoquic_incoming_1rtt(
             }
 
             if (ret == 0 && picoquic_cnx_is_still_logging(cnx)) {
-                picoquic_log_cc_dump(cnx, current_time);
                 picoquic_log_cr_dump(cnx, current_time);
+                picoquic_log_cc_dump(cnx, current_time);
             }
         }
     }
