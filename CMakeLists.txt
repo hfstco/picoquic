@@ -71,147 +71,149 @@ if(ENABLE_UBSAN)
 endif()
 
 set(PICOQUIC_LIBRARY_FILES
-    picoquic/bbr.c
-    picoquic/bbr1.c
-    picoquic/bytestream.c
-    picoquic/cc_common.c
-    picoquic/config.c
-    picoquic/cubic.c
-    picoquic/fastcc.c
-    picoquic/frames.c
-    picoquic/intformat.c
-    picoquic/logger.c
-    picoquic/logwriter.c
-    picoquic/loss_recovery.c
-    picoquic/newreno.c
-    picoquic/pacing.c
-    picoquic/packet.c
-    picoquic/performance_log.c
-    picoquic/picohash.c
-    picoquic/picoquic_lb.c
-    picoquic/picoquic_ptls_fusion.c
-    picoquic/picoquic_ptls_minicrypto.c
-    picoquic/picoquic_ptls_openssl.c
-    picoquic/picoquic_mbedtls.c
-    picoquic/picosocks.c
-    picoquic/picosplay.c
-    picoquic/port_blocking.c
-    picoquic/prague.c
-    picoquic/quicctx.c
-    picoquic/sacks.c
-    picoquic/sender.c
-    picoquic/sim_link.c
-    picoquic/sockloop.c
-    picoquic/spinbit.c
-    picoquic/ticket_store.c
-    picoquic/timing.c
-    picoquic/token_store.c
-    picoquic/tls_api.c
-    picoquic/transport.c
-    picoquic/unified_log.c
-    picoquic/util.c)
+        picoquic/bbr.c
+        picoquic/bbr1.c
+        picoquic/bytestream.c
+        picoquic/careful_resume.c
+        picoquic/cc_common.c
+        picoquic/config.c
+        picoquic/cubic.c
+        picoquic/fastcc.c
+        picoquic/frames.c
+        picoquic/intformat.c
+        picoquic/logger.c
+        picoquic/logwriter.c
+        picoquic/loss_recovery.c
+        picoquic/newreno.c
+        picoquic/pacing.c
+        picoquic/packet.c
+        picoquic/performance_log.c
+        picoquic/picohash.c
+        picoquic/picoquic_lb.c
+        picoquic/picoquic_ptls_fusion.c
+        picoquic/picoquic_ptls_minicrypto.c
+        picoquic/picoquic_ptls_openssl.c
+        picoquic/picoquic_mbedtls.c
+        picoquic/picosocks.c
+        picoquic/picosplay.c
+        picoquic/port_blocking.c
+        picoquic/prague.c
+        picoquic/quicctx.c
+        picoquic/sacks.c
+        picoquic/sender.c
+        picoquic/sim_link.c
+        picoquic/sockloop.c
+        picoquic/spinbit.c
+        picoquic/ticket_store.c
+        picoquic/timing.c
+        picoquic/token_store.c
+        picoquic/tls_api.c
+        picoquic/transport.c
+        picoquic/unified_log.c
+        picoquic/util.c)
 
 set(PICOQUIC_CORE_HEADERS
-     picoquic/picoquic.h
-     picoquic/picosocks.h
-     picoquic/picoquic_utils.h
-     picoquic/picoquic_packet_loop.h
-     picoquic/picoquic_unified_log.h
-     picoquic/picoquic_logger.h
-     picoquic/picoquic_binlog.h
-     picoquic/picoquic_config.h
-     picoquic/picoquic_lb.h)
+        picoquic/picoquic.h
+        picoquic/picosocks.h
+        picoquic/picoquic_utils.h
+        picoquic/picoquic_packet_loop.h
+        picoquic/picoquic_unified_log.h
+        picoquic/picoquic_logger.h
+        picoquic/picoquic_binlog.h
+        picoquic/picoquic_config.h
+        picoquic/picoquic_lb.h)
 
 set(LOGLIB_LIBRARY_FILES
-    loglib/autoqlog.c
-    loglib/cidset.c
-    loglib/csv.c
-    loglib/logconvert.c
-    loglib/logreader.c
-    loglib/qlog.c
-    loglib/svg.c)
+        loglib/autoqlog.c
+        loglib/cidset.c
+        loglib/csv.c
+        loglib/logconvert.c
+        loglib/logreader.c
+        loglib/qlog.c
+        loglib/svg.c)
 
 set(PICOQUIC_LOGLIB_HEADERS loglib/autoqlog.h)
 
 set(PICOQUIC_TEST_LIBRARY_FILES
-    picoquictest/ack_of_ack_test.c
-    picoquictest/app_limited.c
-    picoquictest/bytestream_test.c
-    picoquictest/cert_verify_test.c
-    picoquictest/cleartext_aead_test.c
-    picoquictest/code_version_test.c
-    picoquictest/config_test.c
-    picoquictest/cnx_creation_test.c
-    picoquictest/cnxstress.c
-    picoquictest/cplusplus.cpp
-    picoquictest/cpu_limited.c
-    picoquictest/datagram_tests.c
-    picoquictest/delay_tolerant_test.c
-    picoquictest/edge_cases.c
-    picoquictest/hashtest.c
-    picoquictest/high_latency_test.c
-    picoquictest/intformattest.c
-    picoquictest/l4s_test.c
-    picoquictest/mbedtls_test.c
-    picoquictest/mediatest.c
-    picoquictest/minicrypto_test.c
-    picoquictest/multipath_test.c
-    picoquictest/netperf_test.c
-    picoquictest/openssl_test.c
-    picoquictest/pacing_test.c
-    picoquictest/parseheadertest.c
-    picoquictest/picoquic_lb_test.c
-    picoquictest/pn2pn64test.c
-    picoquictest/quic_tester.c
-    picoquictest/sacktest.c
-    picoquictest/satellite_test.c
-    picoquictest/skip_frame_test.c
-    picoquictest/socket_test.c
-    picoquictest/sockloop_test.c
-    picoquictest/splay_test.c
-    picoquictest/stream0_frame_test.c
-    picoquictest/stresstest.c
-    picoquictest/ticket_store_test.c
-    picoquictest/tls_api_test.c
-    picoquictest/transport_param_test.c
-    picoquictest/util_test.c
-    picoquictest/warptest.c
-    picoquictest/wifitest.c )
+        picoquictest/ack_of_ack_test.c
+        picoquictest/app_limited.c
+        picoquictest/bytestream_test.c
+        picoquictest/careful_resume_test.c
+        picoquictest/cert_verify_test.c
+        picoquictest/cleartext_aead_test.c
+        picoquictest/code_version_test.c
+        picoquictest/config_test.c
+        picoquictest/cnx_creation_test.c
+        picoquictest/cnxstress.c
+        picoquictest/cplusplus.cpp
+        picoquictest/cpu_limited.c
+        picoquictest/datagram_tests.c
+        picoquictest/delay_tolerant_test.c
+        picoquictest/edge_cases.c
+        picoquictest/hashtest.c
+        picoquictest/high_latency_test.c
+        picoquictest/intformattest.c
+        picoquictest/l4s_test.c
+        picoquictest/mbedtls_test.c
+        picoquictest/mediatest.c
+        picoquictest/minicrypto_test.c
+        picoquictest/multipath_test.c
+        picoquictest/netperf_test.c
+        picoquictest/openssl_test.c
+        picoquictest/pacing_test.c
+        picoquictest/parseheadertest.c
+        picoquictest/picoquic_lb_test.c
+        picoquictest/pn2pn64test.c
+        picoquictest/quic_tester.c
+        picoquictest/sacktest.c
+        picoquictest/satellite_test.c
+        picoquictest/skip_frame_test.c
+        picoquictest/socket_test.c
+        picoquictest/sockloop_test.c
+        picoquictest/splay_test.c
+        picoquictest/stream0_frame_test.c
+        picoquictest/stresstest.c
+        picoquictest/ticket_store_test.c
+        picoquictest/tls_api_test.c
+        picoquictest/transport_param_test.c
+        picoquictest/util_test.c
+        picoquictest/warptest.c
+        picoquictest/wifitest.c )
 
 set(PICOHTTP_LIBRARY_FILES
-    picohttp/democlient.c
-    picohttp/demoserver.c
-    picohttp/h3zero.c
-    picohttp/h3zero_client.c
-    picohttp/h3zero_common.c
-    picohttp/h3zero_server.c
-    picohttp/h3zero_uri.c
-    picohttp/quicperf.c
-    picohttp/siduck.c
-    picohttp/webtransport.c
-    picohttp/wt_baton.c)
+        picohttp/democlient.c
+        picohttp/demoserver.c
+        picohttp/h3zero.c
+        picohttp/h3zero_client.c
+        picohttp/h3zero_common.c
+        picohttp/h3zero_server.c
+        picohttp/h3zero_uri.c
+        picohttp/quicperf.c
+        picohttp/siduck.c
+        picohttp/webtransport.c
+        picohttp/wt_baton.c)
 
 set(PICOHTTP_HEADERS
-     picohttp/h3zero.h
-     picohttp/h3zero_common.h
-     picohttp/h3zero_uri.h
-     picohttp/democlient.h
-     picohttp/demoserver.h
-     picohttp/pico_webtransport.h
-     picohttp/wt_baton.h)
+        picohttp/h3zero.h
+        picohttp/h3zero_common.h
+        picohttp/h3zero_uri.h
+        picohttp/democlient.h
+        picohttp/demoserver.h
+        picohttp/pico_webtransport.h
+        picohttp/wt_baton.h)
 
 set(PICOHTTP_TEST_LIBRARY_FILES
-    picoquictest/h3zerotest.c
-    picoquictest/h3zero_stream_test.c
-    picoquictest/h3zero_uri_test.c
-    picoquictest/webtransport_test.c)
+        picoquictest/h3zerotest.c
+        picoquictest/h3zero_stream_test.c
+        picoquictest/h3zero_uri_test.c
+        picoquictest/webtransport_test.c)
 
 OPTION(PICOQUIC_FETCH_PTLS "Fetch PicoTLS during configuration" OFF)
 if(PICOQUIC_FETCH_PTLS)
     include(FetchContent)
     FetchContent_Declare(picotls
-        GIT_REPOSITORY      https://github.com/h2o/picotls.git
-        GIT_TAG             5a4461d8a3948d9d26bf861e7d90cb80d8093515)
+            GIT_REPOSITORY      https://github.com/h2o/picotls.git
+            GIT_TAG             5a4461d8a3948d9d26bf861e7d90cb80d8093515)
     FetchContent_MakeAvailable(picotls)
 endif()
 
