@@ -8,7 +8,7 @@ else()
 endif()
 
 project(picoquic
-        VERSION 1.1.20.0
+        VERSION 1.1.21.2
         DESCRIPTION "picoquic library"
         LANGUAGES C CXX)
 
@@ -250,9 +250,13 @@ OPTION(WITH_MBEDTLS "enable MBEDTLS" OFF)
 IF (WITH_MBEDTLS)
     FIND_PACKAGE(MbedTLS)
     IF (MbedTLS_FOUND)
+        message(STATUS "Enabling MbedTLS support")
         message(STATUS "mbedtls/include: ${MBEDTLS_INCLUDE_DIRS}")
         message(STATUS "mbedtls libraries: ${MBEDTLS_LIBRARIES}")
         list(APPEND PICOQUIC_COMPILE_DEFINITIONS PICOQUIC_WITH_MBEDTLS)
+        list(APPEND PICOQUIC_LIBRARY_FILES 
+                    picoquic_mbedtls/ptls_mbedtls.c
+                    picoquic_mbedtls/ptls_mbedtls_sign.c)
     ELSE ()
         message(STATUS "mbedtls/include: ${MBEDTLS_INCLUDE_DIRS}")
         message(STATUS "mbedtls libraries: ${MBEDTLS_LIBRARIES}")
@@ -313,7 +317,8 @@ target_include_directories(picoquic-core
         ${OPENSSL_INCLUDE_DIR}
     PUBLIC
         ${MBEDTLS_INCLUDE_DIRS}
-        picoquic)
+        picoquic
+        picoquic_mbedtls)
 target_link_libraries(picoquic-core
     PRIVATE
         ${OPENSSL_LIBRARIES}
@@ -353,7 +358,7 @@ add_executable(picoquicdemo
     picoquicfirst/picoquicdemo.c
     picoquicfirst/getopt.c)
 target_link_libraries(picoquicdemo
-    PRIVATE
+    PUBLIC
         ${PTLS_LIBRARIES}
         ${OPENSSL_LIBRARIES}
         ${MBEDTLS_LIBRARIES}
