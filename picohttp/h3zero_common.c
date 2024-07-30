@@ -399,6 +399,8 @@ static void h3zero_reset_control_stream_state(h3zero_data_stream_state_t* stream
 static uint8_t* h3zero_parse_control_stream(uint8_t* bytes, uint8_t* bytes_max,
 	h3zero_data_stream_state_t* stream_state, h3zero_callback_ctx_t* ctx, uint64_t* error_found)
 {
+	printf("h3zero_parse_control_stream(bytes, bytes_max, stream_state, ctx, error_found)\n");
+
 	while (bytes != NULL && bytes < bytes_max) {
 		/* If frame type not known yet, get it. */
 		if (stream_state->current_frame_type == UINT64_MAX) {
@@ -537,6 +539,8 @@ uint8_t* h3zero_parse_remote_unidir_stream(
 	h3zero_callback_ctx_t* ctx,
 	uint64_t * error_found)
 {
+	printf("h3zero_parse_remote_unidir_stream(bytes, bytes_max, stream_ctx, ctx, error_found)\n");
+
 	h3zero_data_stream_state_t* stream_state = &stream_ctx->ps.stream_state;
 
 	if (stream_state->stream_type == UINT64_MAX) {
@@ -837,6 +841,8 @@ int h3zero_process_remote_stream(picoquic_cnx_t* cnx,
 	h3zero_stream_ctx_t* stream_ctx,
 	h3zero_callback_ctx_t* ctx)
 {
+	printf("h3zero_process_remote_stream(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+
 	int ret = 0;
 	uint64_t error_found = 0;
 
@@ -915,6 +921,46 @@ int h3zero_find_path_item(const uint8_t * path, size_t path_length, const picoht
 }
 
 
+/* TODO find a better place. */
+h3zero_content_type_enum h3zero_get_content_type(const char *path) {
+	const char *dot = strrchr(path, '.');
+	if(!dot || dot == path) return h3zero_content_type_text_plain;
+	const char *ext = dot + 1;
+
+	/*
+	* h3zero_content_type_none = 0,
+	* h3zero_content_type_not_supported,
+	* h3zero_content_type_text_html,
+	* h3zero_content_type_text_plain,
+	* h3zero_content_type_image_gif,
+	* h3zero_content_type_image_jpeg,
+	* h3zero_content_type_image_png,
+	* h3zero_content_type_dns_message,
+	* h3zero_content_type_javascript,
+	* h3zero_content_type_json,
+	* h3zero_content_type_www_form_urlencoded,
+	* h3zero_content_type_text_css
+	*/
+	if (strcmp(ext, "html") == 0) {
+		return h3zero_content_type_text_html;
+	} else if ((strcmp(ext, "gif") == 0)) {
+		return h3zero_content_type_image_gif;
+	} else if (strcmp(ext, "jpg") == 0 || strcmp(ext, "jpeg") == 0) {
+		return h3zero_content_type_image_jpeg;
+	} else if ((strcmp(ext, "png") == 0)) {
+		return h3zero_content_type_image_png;
+	} else if ((strcmp(ext, "js") == 0)) {
+		return h3zero_content_type_javascript;
+	} else if ((strcmp(ext, "json") == 0)) {
+		return h3zero_content_type_image_gif;
+	} else if ((strcmp(ext, "css") == 0)) {
+		return h3zero_content_type_text_css;
+	}
+
+	return h3zero_content_type_text_plain;
+}
+
+
 /* Processing of the request frame.
 * This function is called after the client's stream is closed,
 * after verifying that a request was received */
@@ -924,6 +970,8 @@ int h3zero_process_request_frame(
 	h3zero_stream_ctx_t * stream_ctx,
 	h3zero_callback_ctx_t * app_ctx)
 {
+	printf("h3zero_process_request_frame(cnx, stream_ctx, app_ctx)\n");
+
 	/* Prepare response header */
 	uint8_t buffer[1024];
 	uint8_t post_response[512];
@@ -951,9 +999,12 @@ int h3zero_process_request_frame(
 		else {
 			response_length = (stream_ctx->echo_length == 0) ?
 				strlen(h3zero_server_default_page) : stream_ctx->echo_length;
-			o_bytes = h3zero_create_response_header_frame(o_bytes, o_bytes_max,
+			/*o_bytes = h3zero_create_response_header_frame(o_bytes, o_bytes_max,
 				(stream_ctx->echo_length == 0) ? h3zero_content_type_text_html :
-				h3zero_content_type_text_plain);
+				h3zero_content_type_text_plain);*/
+			h3zero_content_type_enum content_type = h3zero_get_content_type(stream_ctx->file_path);
+			o_bytes = h3zero_create_response_header_frame(o_bytes, o_bytes_max,
+				content_type);
 		}
 	}
 	else if (stream_ctx->ps.stream_state.header.method == h3zero_method_post) {
@@ -1139,6 +1190,8 @@ int h3zero_process_h3_server_data(picoquic_cnx_t* cnx,
 	picoquic_call_back_event_t fin_or_event, h3zero_callback_ctx_t* ctx,
 	h3zero_stream_ctx_t* stream_ctx, uint64_t* fin_stream_id)
 {
+	printf("h3zero_process_h3_server_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+
 	int ret = 0;
 	int process_complete = 0;
 	size_t available_data = 0;
@@ -1318,6 +1371,7 @@ int h3zero_callback_data(picoquic_cnx_t* cnx,
 	picoquic_call_back_event_t fin_or_event, h3zero_callback_ctx_t* ctx,
 	h3zero_stream_ctx_t* stream_ctx, uint64_t* fin_stream_id)
 {
+	printf("h3zero_callback_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
 
 	int ret = 0;
 
@@ -1676,6 +1730,8 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 	uint64_t stream_id, uint8_t* bytes, size_t length,
 	picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
+	printf("h3zero_callback(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+
 	int ret = 0;
 	h3zero_callback_ctx_t* ctx = NULL;
 	h3zero_stream_ctx_t* stream_ctx = (h3zero_stream_ctx_t*)v_stream_ctx;
@@ -1727,6 +1783,7 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 		case picoquic_callback_stateless_reset:
 		case picoquic_callback_close: /* Received connection close */
 		case picoquic_callback_application_close: /* Received application close */
+			fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_close\n", picoquic_current_time());
 			if (cnx->client_mode) {
 				if (!ctx->no_print) {
 					fprintf(stdout, "Received a %s\n",
