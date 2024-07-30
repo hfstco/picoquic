@@ -301,9 +301,9 @@ void picoquic_cubic_notify(
                             path_x->cwin = cubic_state->cr_state.cwin;
                             break;
                         case picoquic_congestion_notification_spurious_repeat:
-                            /*CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
                                             "picoquic_congestion_notification_spurious_repeat\n");
-                            CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);*/
+                            CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
 
                             if (cubic_state->cr_state.alg_state == picoquic_cr_alg_recon ||
                                 cubic_state->cr_state.alg_state == picoquic_cr_alg_normal ||
@@ -378,15 +378,15 @@ void picoquic_cubic_notify(
 
                             break;
                         case picoquic_congestion_notification_reset:
-                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
-                                            "picoquic_congestion_notification_reset\n");
+                            /* CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                                            "picoquic_congestion_notification_reset\n"); */
                             picoquic_cubic_reset(cubic_state, path_x, current_time);
                             break;
                         case picoquic_congestion_notification_seed_cwin:
-                            CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
+                            /* CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_slow_start | "
                                             "picoquic_congestion_notification_seed_cwin\n");
                             CC_DEBUG_DUMP("seed_cwin=%" PRIu64 ", seed_rtt=%" PRIu64 "\n", ack_state->nb_bytes_acknowledged,
-                                          ack_state->rtt_measurement);
+                                          ack_state->rtt_measurement); */
 
                             /* Nofify careful resume. */
                             picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
@@ -533,11 +533,11 @@ void picoquic_cubic_notify(
                     case picoquic_congestion_notification_repeat:
                     case picoquic_congestion_notification_ecn_ec:
                     case picoquic_congestion_notification_timeout:
-                        /*CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
+                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
                                         "picoquic_congestion_notification_repeat | "
                                         "picoquic_congestion_notification_ecn_ec | "
                                         "picoquic_congestion_notification_timeout\n");
-                        CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);*/
+                        CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
                         /* For compatibility with Linux-TCP deployments, we implement a filter so
                          * Cubic will only back off after repeated losses, not just after a single loss.
                          */
@@ -556,9 +556,9 @@ void picoquic_cubic_notify(
 
                     break;
                     case picoquic_congestion_notification_spurious_repeat:
-                        /*CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
+                        CC_DEBUG_PRINTF(path_x, "picoquic_cubic_alg_congestion_avoidance | "
                                         "picoquic_congestion_notification_spurious_repeat\n");
-                        CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);*/
+                        CC_DEBUG_DUMP("lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
                         picoquic_cubic_correct_spurious(path_x, cubic_state, current_time);
 
                         cubic_state->cr_state.ssthresh = cubic_state->ssthresh;

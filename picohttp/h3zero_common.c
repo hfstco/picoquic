@@ -399,7 +399,7 @@ static void h3zero_reset_control_stream_state(h3zero_data_stream_state_t* stream
 static uint8_t* h3zero_parse_control_stream(uint8_t* bytes, uint8_t* bytes_max,
 	h3zero_data_stream_state_t* stream_state, h3zero_callback_ctx_t* ctx, uint64_t* error_found)
 {
-	printf("h3zero_parse_control_stream(bytes, bytes_max, stream_state, ctx, error_found)\n");
+	/* printf("h3zero_parse_control_stream(bytes, bytes_max, stream_state, ctx, error_found)\n"); */
 
 	while (bytes != NULL && bytes < bytes_max) {
 		/* If frame type not known yet, get it. */
@@ -539,7 +539,7 @@ uint8_t* h3zero_parse_remote_unidir_stream(
 	h3zero_callback_ctx_t* ctx,
 	uint64_t * error_found)
 {
-	printf("h3zero_parse_remote_unidir_stream(bytes, bytes_max, stream_ctx, ctx, error_found)\n");
+	/* printf("h3zero_parse_remote_unidir_stream(bytes, bytes_max, stream_ctx, ctx, error_found)\n"); */
 
 	h3zero_data_stream_state_t* stream_state = &stream_ctx->ps.stream_state;
 
@@ -841,7 +841,7 @@ int h3zero_process_remote_stream(picoquic_cnx_t* cnx,
 	h3zero_stream_ctx_t* stream_ctx,
 	h3zero_callback_ctx_t* ctx)
 {
-	printf("h3zero_process_remote_stream(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+	/* printf("h3zero_process_remote_stream(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event); */
 
 	int ret = 0;
 	uint64_t error_found = 0;
@@ -970,7 +970,7 @@ int h3zero_process_request_frame(
 	h3zero_stream_ctx_t * stream_ctx,
 	h3zero_callback_ctx_t * app_ctx)
 {
-	printf("h3zero_process_request_frame(cnx, stream_ctx, app_ctx)\n");
+	/* printf("h3zero_process_request_frame(cnx, stream_ctx, app_ctx)\n"); */
 
 	/* Prepare response header */
 	uint8_t buffer[1024];
@@ -1190,7 +1190,7 @@ int h3zero_process_h3_server_data(picoquic_cnx_t* cnx,
 	picoquic_call_back_event_t fin_or_event, h3zero_callback_ctx_t* ctx,
 	h3zero_stream_ctx_t* stream_ctx, uint64_t* fin_stream_id)
 {
-	printf("h3zero_process_h3_server_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+	/* printf("h3zero_process_h3_server_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event); */
 
 	int ret = 0;
 	int process_complete = 0;
@@ -1371,7 +1371,7 @@ int h3zero_callback_data(picoquic_cnx_t* cnx,
 	picoquic_call_back_event_t fin_or_event, h3zero_callback_ctx_t* ctx,
 	h3zero_stream_ctx_t* stream_ctx, uint64_t* fin_stream_id)
 {
-	printf("h3zero_callback_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+	/* printf("h3zero_callback_data(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event); */
 
 	int ret = 0;
 
@@ -1730,7 +1730,7 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 	uint64_t stream_id, uint8_t* bytes, size_t length,
 	picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
-	printf("h3zero_callback(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+	/* printf("h3zero_callback(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event); */
 
 	int ret = 0;
 	h3zero_callback_ctx_t* ctx = NULL;
