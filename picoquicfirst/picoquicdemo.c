@@ -317,6 +317,9 @@ int quic_server(const char* server_name, picoquic_quic_config_t * config, int ju
 
                 picoquic_use_unique_log_names(qserver, 1);
 
+                /* Set round robin as default stream priority. */
+                picoquic_set_default_priority(qserver, 10);
+
                 if (config->qlog_dir != NULL)
                 {
                     picoquic_set_qlog(qserver, config->qlog_dir);
