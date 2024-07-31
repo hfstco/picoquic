@@ -603,7 +603,7 @@ int picoquic_demo_server_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
-    printf("picoquic_demo_server_callback(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event);
+    /* printf("picoquic_demo_server_callback(cnx, stream_id=%" PRIu64 ", bytes, length=%" PRIu64 ", fin_or_event=%" PRIu64 ", callback_ctx, v_stream_ctx)\n", stream_id, length, fin_or_event); */
 
     int ret = 0;
     picoquic_alpn_enum alpn_code = picoquic_alpn_undef;
