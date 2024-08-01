@@ -115,6 +115,7 @@ extern "C" {
         FILE* F;
         picohttp_post_data_cb_fn path_callback;
         void* path_callback_ctx;
+        uint64_t request_received_time;
     } h3zero_stream_ctx_t;
 
     /* Parsing of a data stream. This is implemented as a filter, with a set of states:
