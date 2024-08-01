@@ -4201,7 +4201,8 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
                 /* Set the multipath option at both client and server */
                 multipath_init_params(&server_parameters, 0);
                 picoquic_set_default_tp(test_ctx->qserver, &server_parameters);
-                test_ctx->cnx_client->local_parameters.enable_multipath = 1;
+                test_ctx->cnx_client->local_parameters.is_multipath_enabled = 1;
+                test_ctx->cnx_client->local_parameters.initial_max_path_id = 3;
                 test_ctx->cnx_client->local_parameters.enable_time_stamp = 0;
             }
 
@@ -4266,6 +4267,17 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
             } else {
                 /* run a receive loop until no outstanding data */
                 ret = tls_api_synch_to_empty_loop(test_ctx, &simulated_time, 2048, 0, 0);
+            }
+        }
+
+        if (ret == 0 && i == 1 && do_multipath) {
+            /* verify that multipath was negotiated */
+            if (!test_ctx->cnx_client->is_multipath_enabled ||
+                !test_ctx->cnx_server->is_multipath_enabled) {
+                DBG_PRINTF("Zero RTT test, multipath not negotiated (client: %d, server: %d).\n",
+                    test_ctx->cnx_client->is_multipath_enabled,
+                    test_ctx->cnx_server->is_multipath_enabled);
+                ret = -1;
             }
         }
 
@@ -6992,7 +7004,7 @@ int retire_cnxid_test()
             ret = -1;
         } else {
             ret = picoquic_queue_retire_connection_id_frame(test_ctx->cnx_client, 0, stashed->sequence);
-            (void)picoquic_remove_stashed_cnxid(test_ctx->cnx_client, 0, stashed, NULL, 0);
+            (void)picoquic_remove_stashed_cnxid(test_ctx->cnx_client, 0, stashed, NULL);
         }
     }
 

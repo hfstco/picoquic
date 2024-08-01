@@ -27,7 +27,7 @@
 #include "picoquic_config.h"
 #include "picoquictest_internal.h"
 
-static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:M:e:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:Jh";
+static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:Me:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:Jh";
 
 int config_option_letters_test()
 {
@@ -64,9 +64,9 @@ static picoquic_quic_config_t param1 = {
     655360, /* Socket buffer size */
     "cubic", /* const picoquic_congestion_algorithm_t* cc_algorithm; */
     "0N8C-000123", /* char const* cnx_id_cbdata; */
-    3,
-    2,
-    3,
+    3, /* spin bit policy */
+    2, /* loss bit policy */
+    1, /* multipath option */
     "127.0.0.1",
     1,
     UINT64_MAX, /* Do not limit CWIN */
@@ -117,7 +117,7 @@ static char const* config_argv1[] = {
     "-G", "cubic",
     "-P", "3",
     "-O", "2",
-    "-M", "3",
+    "-M",
     "-R", "1",
     "-L",
     "-w", "/data/www/",
@@ -150,9 +150,9 @@ static picoquic_quic_config_t param2 = {
     0, /* socket_buffer_size */
     NULL, /* const picoquic_congestion_algorithm_t* cc_algorithm; */
     NULL, /* char const* cnx_id_cbdata; */
-    0,
-    0,
-    0,
+    0, /* spin bit policy */
+    0, /* loss bit policy */
+    0, /* multipath option */
     "127.0.0.1",
     0,
     1000000, /* Limit CWIN to 1 million bytes */
@@ -232,7 +232,6 @@ static config_error_test_t config_errors[] = {
     { 2, { "-m", "15360"}},
     { 2, { "-P", "33"}},
     { 2, { "-O", "22"}},
-    { 2, { "-M", "8"}},
     { 2, { "-R", "17"}},
     { 1, { "-w" }},
     { 2, { "-s", "0123456789abcdexyedcba9876543210"}},
@@ -348,7 +347,6 @@ int config_test_compare(const picoquic_quic_config_t* expected, const picoquic_q
     ret |= config_test_compare_int("bdp", expected->bdp_frame_option, actual->bdp_frame_option);
     ret |= config_test_compare_int("idle_timeout", expected->idle_timeout, actual->idle_timeout);
     ret |= config_test_compare_uint64("cwin_max", expected->cwin_max, actual->cwin_max);
-    ret |= config_test_compare_uint64("careful_resume", expected->use_careful_resume, actual->use_careful_resume);
     return ret;
 }
 
