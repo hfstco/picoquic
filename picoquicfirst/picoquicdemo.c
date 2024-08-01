@@ -413,6 +413,7 @@ typedef struct st_client_loop_cb_t {
     int client_alt_if[PICOQUIC_NB_PATH_TARGET];
     int nb_alt_paths;
     uint16_t local_port;
+    uint16_t alt_port;
     picoquic_connection_id_t server_cid_before_migration;
     picoquic_connection_id_t client_cid_before_migration;
     packet_loop_system_call_duration_t sc_duration;
@@ -491,9 +492,9 @@ static int simulate_migration(client_loop_cb_t* cb_ctx)
     picoquic_store_addr(&addr_from,
         (struct sockaddr*)&cb_ctx->cnx_client->path[0]->local_addr);
     if (addr_from.ss_family == AF_INET6) {
-        ((struct sockaddr_in6*)&addr_from)->sin6_port = htons(cb_ctx->local_port);
+        ((struct sockaddr_in6*)&addr_from)->sin6_port = htons(cb_ctx->alt_port);
     } else {
-        ((struct sockaddr_in*)&addr_from)->sin_port = htons(cb_ctx->local_port);
+        ((struct sockaddr_in*)&addr_from)->sin_port = htons(cb_ctx->alt_port);
     }
 
     ret = picoquic_probe_new_path(cb_ctx->cnx_client,
@@ -518,6 +519,7 @@ int client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
         case picoquic_packet_loop_ready: {
             picoquic_packet_loop_options_t* options = (picoquic_packet_loop_options_t*)callback_arg;
             options->do_system_call_duration = 1;
+            options->provide_alt_port = 1;
             fprintf(stdout, "Waiting for packets.\n");
             break;
         }
@@ -727,6 +729,9 @@ int client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
             break;
         case picoquic_packet_loop_port_update:
             break;
+        case picoquic_packet_loop_alt_port:
+            cb_ctx->alt_port = *((uint16_t*)callback_arg);
+            break;
         case picoquic_packet_loop_system_call_duration:
             memcpy(&cb_ctx->sc_duration, callback_arg, sizeof(packet_loop_system_call_duration_t));
             break;
@@ -749,8 +754,6 @@ int quic_client(const char* ip_address_text, int server_port,
     picoquic_cnx_t* cnx_client = NULL;
     picoquic_demo_callback_ctx_t callback_ctx = { 0 };
     uint64_t current_time = 0;
-    uint64_t system_call_duration_max = 0;
-    uint64_t system_call_duration_smoothed = 0;
 
     int is_name = 0;
     size_t client_sc_nb = 0;
@@ -1046,9 +1049,6 @@ int quic_client(const char* ip_address_text, int server_port,
 
         if ((config->multipath_option&1) != 0) {
             fprintf(stdout, "Enable multipath: %s.\n", (cnx_client->is_multipath_enabled)?"Success":"Refused");
-        }
-        if ((config->multipath_option&2) != 0) {
-            fprintf(stdout, "Enable simple multipath: %s.\n", (cnx_client->is_simple_multipath_enabled)?"Success":"Refused");
         }
 
         if (loop_cb.force_migration){

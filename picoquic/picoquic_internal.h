@@ -589,8 +589,6 @@ typedef uint64_t picoquic_tp_enum;
 #define picoquic_tp_min_ack_delay 0xff04de1aull 
 #define picoquic_tp_enable_time_stamp 0x7158  /* x&1 */
 #define picoquic_tp_grease_quic_bit 0x2ab2
-#define picoquic_tp_enable_multipath 0x0f739bbc1b666d06ull
-#define picoquic_tp_enable_simple_multipath  0x29e3d19e
 #define picoquic_tp_version_negotiation 0x11
 #define picoquic_tp_enable_bdp_frame 0xebd9 /* per draft-kuhn-quic-0rtt-bdp-09 */
 #define picoquic_tp_initial_max_path_id  0x0f739bbc1b666d09ull /* per draft quic multipath 09 */
@@ -1289,7 +1287,6 @@ typedef struct st_picoquic_cnx_t {
     unsigned int did_receive_short_initial : 1; /* whether peer sent unpadded initial packet */
     unsigned int ack_ignore_order_local : 1; /* Request peer to not generate immediate ack if out of order packet received */
     unsigned int ack_ignore_order_remote : 1; /* Peer requested no immediate ack if out of order packet received */
-    unsigned int is_simple_multipath_enabled : 1; /* Usage of simple multipath was negotiated */
     unsigned int are_path_callbacks_enabled : 1; /* Enable path specific callbacks */
     unsigned int is_sending_large_buffer : 1; /* Buffer provided by application is sufficient for PMTUD */
     unsigned int is_preemptive_repeat_enabled : 1; /* Preemptive repat of packets to reduce transaction latency */
@@ -1584,14 +1581,16 @@ uint64_t picoquic_stash_remote_cnxid(picoquic_cnx_t * cnx, uint64_t retire_befor
     const uint64_t unique_path_id, const uint64_t sequence, const uint8_t cid_length, const uint8_t * cnxid_bytes,
     const uint8_t * secret_bytes, picoquic_remote_cnxid_t ** pstashed);
 
-picoquic_remote_cnxid_t* picoquic_remove_cnxid_from_stash(picoquic_cnx_t* cnx, picoquic_remote_cnxid_stash_t* remote_cnxid_stash, picoquic_remote_cnxid_t* removed, picoquic_remote_cnxid_t* previous, int recycle_packets);
+picoquic_remote_cnxid_t* picoquic_remove_cnxid_from_stash(picoquic_cnx_t* cnx, picoquic_remote_cnxid_stash_t* remote_cnxid_stash, picoquic_remote_cnxid_t* removed, picoquic_remote_cnxid_t* previous);
 
 picoquic_remote_cnxid_t* picoquic_remove_stashed_cnxid(picoquic_cnx_t* cnx, uint64_t unique_path_id, picoquic_remote_cnxid_t* removed, 
-    picoquic_remote_cnxid_t* previous, int recycle_packets);
+    picoquic_remote_cnxid_t* previous);
 
 picoquic_remote_cnxid_t* picoquic_obtain_stashed_cnxid(picoquic_cnx_t* cnx, uint64_t unique_path_id);
 void picoquic_dereference_stashed_cnxid(picoquic_cnx_t* cnx, picoquic_path_t* path_x, int is_deleting_cnx);
 uint64_t picoquic_remove_not_before_from_stash(picoquic_cnx_t* cnx, picoquic_remote_cnxid_stash_t* cnxid_stash, uint64_t not_before, uint64_t current_time);
+void picoquic_delete_remote_cnxid_stash(picoquic_cnx_t* cnx, picoquic_remote_cnxid_stash_t* cnxid_stash);
+
 uint64_t picoquic_remove_not_before_cid(picoquic_cnx_t* cnx, uint64_t unique_path_id, uint64_t not_before, uint64_t current_time);
 int picoquic_renew_path_connection_id(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
 
