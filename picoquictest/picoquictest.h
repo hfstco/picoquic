@@ -31,7 +31,8 @@ void debug_printf_suspend();
 
 /* Control variables for the duration of the stress test */
 
-extern uint64_t picoquic_stress_test_duration; /* In microseconds; defaults to 2 minutes */
+extern uint64_t picoquic_stress_test_duration; /* In microseconds; defaults to 1 minute */
+extern size_t picoquic_stress_nb_clients; /* number of stress clients, defaults to 4 */
 
 /* List of test functions */
 int util_connection_id_print_test();
@@ -430,6 +431,7 @@ int monopath_0rtt_test();
 int monopath_0rtt_loss_test();
 int multipath_aead_test();
 int multipath_basic_test();
+int multipath_fail_test();
 int multipath_drop_first_test();
 int multipath_drop_second_test();
 int multipath_sat_plus_test();
@@ -450,20 +452,6 @@ int multipath_standby_test();
 int multipath_standup_test();
 int multipath_qlog_test();
 int multipath_tunnel_test();
-int simple_multipath_basic_test();
-int simple_multipath_drop_first_test();
-int simple_multipath_drop_second_test();
-int simple_multipath_sat_plus_test();
-int simple_multipath_renew_test();
-int simple_multipath_rotation_test();
-int simple_multipath_nat_test();
-int simple_multipath_break1_test();
-int simple_multipath_socket_error_test();
-int simple_multipath_abandon_test();
-int simple_multipath_back1_test();
-int simple_multipath_perf_test();
-int simple_multipath_qlog_test();
-int simple_multipath_quality_test();
 int token_reuse_api_test();
 int grease_quic_bit_test();
 int grease_quic_bit_one_way_test();
