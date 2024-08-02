@@ -1272,6 +1272,10 @@ int h3zero_process_h3_server_data(picoquic_cnx_t* cnx,
 				/* Process the request header. */
 				if (stream_ctx->ps.stream_state.header_found) {
 					ret = h3zero_process_request_frame(cnx, stream_ctx, ctx);
+					char request_string[256];
+					picoquic_uint8_to_str(request_string, 256, stream_ctx->ps.stream_state.header.path, stream_ctx->ps.stream_state.header.path_length);
+					stream_ctx->request_received_time = picoquic_current_time();
+					fprintf(stdout, "%" PRIu64 "\tRequest for %s received...\n", stream_ctx->request_received_time, request_string);
 				}
 				else {
 					/* Unexpected end of stream before the header is received */
@@ -1496,6 +1500,8 @@ int h3zero_prepare_to_send(int client_mode, void* context, size_t space,
 	int ret = 0;
 
 	if (!client_mode && stream_ctx->F == NULL && stream_ctx->file_path != NULL) {
+		uint64_t current_time = picoquic_current_time();
+		fprintf(stdout, "%" PRIu64 "\tRequested file is loaded after %" PRIu64 " microseconds.\n", current_time, current_time - stream_ctx->request_received_time);
 		stream_ctx->F = picoquic_file_open(stream_ctx->file_path, "rb");
 		if (stream_ctx->F == NULL) {
 			ret = -1;
@@ -1538,6 +1544,12 @@ int h3zero_callback_prepare_to_send(picoquic_cnx_t* cnx,
 			ret = h3zero_prepare_to_send(cnx->client_mode, context, space, stream_ctx);
 			/* if finished sending on server, delete stream */
 			if (!cnx->client_mode) {
+				if (stream_ctx->echo_length == stream_ctx->echo_sent) {
+					char request_string[256];
+					picoquic_uint8_to_str(request_string, 256, stream_ctx->ps.stream_state.header.path, stream_ctx->ps.stream_state.header.path_length);
+					uint64_t current_time = picoquic_current_time();
+					fprintf(stdout, "%" PRIu64 "\tRequest %s completed after %" PRIu64 " microseconds.\n", current_time, request_string, current_time - stream_ctx->request_received_time);
+				}
 				if (stream_ctx->echo_sent >= stream_ctx->echo_length) {
 					h3zero_delete_stream(cnx, ctx, stream_ctx);
 				}
@@ -1782,8 +1794,12 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 			break;
 		case picoquic_callback_stateless_reset:
 		case picoquic_callback_close: /* Received connection close */
-		case picoquic_callback_application_close: /* Received application close */
-			fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_close\n", picoquic_current_time());
+		case picoquic_callback_application_close: /* Received application close */ {
+			char addr_text[47]; /* ipv6 max length + :port + null termination = 39 + 6 + 2 = 47 */
+			struct sockaddr *peer;
+			picoquic_get_peer_addr(cnx, &peer);
+			picoquic_addr_text(peer, addr_text, 47);
+			fprintf(stdout, "%" PRIu64 "\tConnection to %s closed.\n", picoquic_current_time(), addr_text);
 			if (cnx->client_mode) {
 				if (!ctx->no_print) {
 					fprintf(stdout, "Received a %s\n",
@@ -1801,6 +1817,7 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 				picoquic_set_callback(cnx, NULL, NULL);
 			}
 			break;
+		}
 		case picoquic_callback_version_negotiation:
 			if (cnx->client_mode && !ctx->no_print) {
 				fprintf(stdout, "Received a version negotiation request:");
@@ -1830,10 +1847,17 @@ int h3zero_callback(picoquic_cnx_t* cnx,
 			/* datagram acknowledgements are not visible for now at the H3 layer, just ignore. */
 			break;
 		case picoquic_callback_almost_ready:
-		case picoquic_callback_ready:
-			/* TODO: Check that the transport parameters are what Http3 expects */
-			fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_ready\n", picoquic_current_time());
 			break;
+		case picoquic_callback_ready: {
+			/* TODO: Check that the transport parameters are what Http3 expects */
+			/* fprintf(stdout, "%" PRIu64 "\tpicoquic_callback_ready\n", picoquic_current_time()); */
+			char addr_text[47]; /* ipv6 max length + :port + null termination = 39 + 6 + 2 = 47 */
+			struct sockaddr *peer;
+			picoquic_get_peer_addr(cnx, &peer);
+			picoquic_addr_text(peer, addr_text, 47);
+			fprintf(stdout, "%" PRIu64 "\tNew connection from %s...\n", picoquic_current_time(), addr_text);
+			break;
+		}
 		default:
 			/* unexpected -- just ignore. */
 			break;
