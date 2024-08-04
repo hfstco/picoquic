@@ -75,6 +75,7 @@ typedef enum {
     picoquic_option_CAREFUL_RESUME,
     picoquic_option_FORCED_SAVED_CWND,
     picoquic_option_FORCED_SAVED_RTT,
+    picoquic_option_SSLKEYLOG,
     picoquic_option_HELP
 }  picoquic_option_enum_t;
 
@@ -113,6 +114,9 @@ typedef struct st_picoquic_quic_config_t {
 
     uint64_t forced_saved_cwnd;
     uint64_t forced_saved_rtt;
+#ifndef PICOQUIC_WITHOUT_SSLKEYLOG
+    unsigned int enable_sslkeylog : 1;
+#endif
     /* Server only */
     char const* www_dir;
     uint8_t reset_seed[16];
