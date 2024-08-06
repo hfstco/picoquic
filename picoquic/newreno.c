@@ -242,15 +242,18 @@ static void picoquic_newreno_notify(
             if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                 if (nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
                     nr_state->nrss.ssthresh == UINT64_MAX) {
+                    /* Slow start. */
                     if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
                                     path_x->cwin, nr_state->hystart_pp_state.current_round.current_round_min_rtt,
                                     nr_state->hystart_pp_state.current_round.last_round_min_rtt,
                                     nr_state->hystart_pp_state.current_round.rtt_sample_count);
 
-                        path_x->cwin += picoquic_hystart_pp_increase(&nr_state->hystart_pp_state, ack_state);
+                        path_x->cwin += picoquic_hystart_pp_keep_track_and_increase(/*path_x, */&nr_state->hystart_pp_state, ack_state);
                         nr_state->nrss.cwin = path_x->cwin;
 
+                        /* Switch between SS and CSS. */
+                        /* TODO Move hystart test in front of cwnd increase? */
                         if(picoquic_hystart_pp_test(&nr_state->hystart_pp_state)) {
                             CC_DEBUG_PRINTF(path_x, "hystart_test\n");
                         }
@@ -261,12 +264,12 @@ static void picoquic_newreno_notify(
                          */
                         /* Check if we reached the end of the round. */
                         if (picoquic_cc_get_ack_number(cnx, path_x) >= nr_state->hystart_pp_state.window_end) {
-                            /* Reset windowEnd, triggers to start new round. */
+                            /* Round has ended. */
                             CC_DEBUG_DUMP("current_ack_number=%" PRIu64 ", window_end=%" PRIu64 "\n",
                                 picoquic_cc_get_ack_number(cnx, path_x), nr_state->hystart_pp_state.window_end);
 
-                            /* If CSS round ends. */
                             if (nr_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
+                                /* CSS round ends. */
                                 CC_DEBUG_PRINTF(path_x, "HYSTART++ | CSS ROUND END\n");
                                 CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
                                     path_x->cwin, nr_state->hystart_pp_state.current_round.current_round_min_rtt,
@@ -287,6 +290,8 @@ static void picoquic_newreno_notify(
                                     break;
                                 }
                             } else {
+                                /* SS round ends. */
+                                /* TODO Only for debug.*/
                                 CC_DEBUG_PRINTF(path_x, "HYSTART++ | SS ROUND END\n");
                                 CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n", path_x->cwin,
                                     nr_state->hystart_pp_state.current_round.current_round_min_rtt,
@@ -294,6 +299,7 @@ static void picoquic_newreno_notify(
                                     nr_state->hystart_pp_state.current_round.rtt_sample_count);
                             }
 
+                            /* TODO invent picoquic_congestion_notification_sent */
                             /* Start new round. */
                             /* HyStart++ measures rounds using sequence numbers, as follows:
                              *      - Define windowEnd as a sequence number initialized to SND.NXT.
@@ -306,6 +312,7 @@ static void picoquic_newreno_notify(
                         }
                     }
                 } else {
+                    /* Congestion avoidance. */
                     picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
                     path_x->cwin = nr_state->nrss.cwin;
                 }

@@ -128,6 +128,7 @@ static void picoquic_cubic_enter_avoidance(
     picoquic_cubic_state_t* cubic_state,
     uint64_t current_time)
 {
+    fprintf(stdout, "avoidance\n");
     cubic_state->K = picoquic_cubic_root(cubic_state->W_max*(1.0 - cubic_state->beta) / cubic_state->C);
     cubic_state->alg_state = picoquic_cubic_alg_congestion_avoidance;
     cubic_state->start_of_epoch = current_time;
@@ -142,6 +143,7 @@ static void picoquic_cubic_enter_recovery(picoquic_cnx_t * cnx,
     picoquic_cubic_state_t* cubic_state,
     uint64_t current_time)
 {
+    fprintf(stdout, "recovery\n");
     cubic_state->recovery_sequence = picoquic_cc_get_sequence_number(cnx, path_x);
     /* Update similar to new reno, but different beta */
     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
@@ -250,8 +252,10 @@ static void picoquic_cubic_notify(
                                     cubic_state->hystart_pp_state.current_round.last_round_min_rtt,
                                     cubic_state->hystart_pp_state.current_round.rtt_sample_count);
 
-                    path_x->cwin += picoquic_hystart_pp_increase(&cubic_state->hystart_pp_state, ack_state);
+                    path_x->cwin += picoquic_hystart_pp_keep_track_and_increase(/*path_x, */&cubic_state->hystart_pp_state, ack_state);
 
+                    /* Switch between SS and CSS. */
+                    /* TODO Move hystart test in front of cwnd increase? */
                     if(picoquic_hystart_pp_test(&cubic_state->hystart_pp_state)) {
                         CC_DEBUG_PRINTF(path_x, "hystart_test\n");
                     }
@@ -262,12 +266,12 @@ static void picoquic_cubic_notify(
                      */
                     /* Check if we reached the end of the round. */
                     if (picoquic_cc_get_ack_number(cnx, path_x) >= cubic_state->hystart_pp_state.window_end) {
-                        /* Reset windowEnd, triggers to start new round. */
+                        /* Round has ended. */
                         CC_DEBUG_DUMP("current_ack_number=%" PRIu64 ", window_end=%" PRIu64 "\n",
                             picoquic_cc_get_ack_number(cnx, path_x), cubic_state->hystart_pp_state.window_end);
 
-                        /* If CSS round ends. */
                         if (cubic_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
+                            /* CSS round ends. */
                             CC_DEBUG_PRINTF(path_x, "HYSTART++ | CSS ROUND END\n");
                             CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n",
                                 path_x->cwin, cubic_state->hystart_pp_state.current_round.current_round_min_rtt,
@@ -282,11 +286,16 @@ static void picoquic_cubic_notify(
                             if (cubic_state->hystart_pp_state.css_round_count >= PICOQUIC_HYSTART_PP_CSS_ROUNDS) {
                                 CC_DEBUG_PRINTF(path_x, "HYSTART++ | EXIT TO CONGESTION AVOIDANCE\n");
                                 cubic_state->ssthresh = path_x->cwin;
+                                cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
+                                cubic_state->W_last_max = cubic_state->W_max;
+                                cubic_state->W_reno = ((double)path_x->cwin);
                                 path_x->is_ssthresh_initialized = 1;
                                 picoquic_cubic_enter_avoidance(cubic_state, current_time);
                                 break;
                             }
                         } else {
+                            /* SS round ends. */
+                            /* TODO Only for debug.*/
                             CC_DEBUG_PRINTF(path_x, "HYSTART++ | SS ROUND END\n");
                             CC_DEBUG_DUMP("cwin=%" PRIu64 ", min_rtt=%" PRIu64 ", last_min_rtt=%" PRIu64 ", sample_count=%" PRIu64 "\n", path_x->cwin,
                                 cubic_state->hystart_pp_state.current_round.current_round_min_rtt,
@@ -294,7 +303,8 @@ static void picoquic_cubic_notify(
                                 cubic_state->hystart_pp_state.current_round.rtt_sample_count);
                         }
 
-                        /* Start new round. */
+                        /* TODO invent picoquic_congestion_notification_sent */
+                        /* As the current round has ended, start new round. */
                         /* HyStart++ measures rounds using sequence numbers, as follows:
                          *      - Define windowEnd as a sequence number initialized to SND.NXT.
                          *      - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
@@ -310,19 +320,16 @@ static void picoquic_cubic_notify(
             case picoquic_congestion_notification_ecn_ec:
             case picoquic_congestion_notification_timeout:
                 CC_DEBUG_PRINTF(path_x, "picoquic_congestion_notification_repeat | picoquic_congestion_notification_ecn_ec | picoquic_congestion_notification_timeout\n");
-                /*if (cnx->quic->use_hystart_pp) {*/
-                    /* If loss or Explicit Congestion Notification (ECN) marking is observed at any time during standard
-                     * slow start or CSS, enter congestion avoidance by setting the ssthresh to the current cwnd.
-                     *      ssthresh = cwnd
-                     */
-                    /*cubic_state->ssthresh = path_x->cwin;
-                    cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
-                    cubic_state->W_last_max = cubic_state->W_max;
-                    cubic_state->W_reno = ((double)path_x->cwin);
+                CC_DEBUG_DUMP("lost_packet=%" PRIu64 "\n", ack_state->lost_packet_number);
+                /* If loss or Explicit Congestion Notification (ECN) marking is observed at any time during standard
+                 * slow start or CSS, enter congestion avoidance by setting the ssthresh to the current cwnd.
+                 *      ssthresh = cwnd
+                 */
+                /*  cubic_state->ssthresh = path_x->cwin;
                     path_x->is_ssthresh_initialized = 1;
-                    picoquic_cubic_enter_avoidance(cubic_state, current_time);*/
-                    /* TODO check if code below also works for hystart++ */
-                /*} else {*/
+                    picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
+                */
+                /* TODO check if code below also works for hystart++ */
                 /* For compatibility with Linux-TCP deployments, we implement a filter so
                  * Cubic will only back off after repeated losses, not just after a single loss.
                  */
@@ -339,6 +346,8 @@ static void picoquic_cubic_notify(
                 picoquic_cubic_correct_spurious(path_x, cubic_state, current_time);
                 break;
             case picoquic_congestion_notification_rtt_measurement:
+                /* TODO: this call is subsumed by the acknowledgement notification.
+                 * Consider removing it from the API once other CC algorithms are updated.  */
                 break;
             case picoquic_congestion_notification_cwin_blocked:
                 break;

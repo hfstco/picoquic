@@ -166,6 +166,7 @@ set(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/pacing_test.c
     picoquictest/parseheadertest.c
     picoquictest/picoquic_lb_test.c
+    picoquictest/playground.c
     picoquictest/pn2pn64test.c
     picoquictest/quic_tester.c
     picoquictest/sacktest.c

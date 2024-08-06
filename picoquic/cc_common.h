@@ -92,7 +92,11 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
 #define PICOQUIC_HYSTART_PP_N_RTT_SAMPLE 8
 #define PICOQUIC_HYSTART_PP_CSS_GROWTH_DIVISOR 4
 #define PICOQUIC_HYSTART_PP_CSS_ROUNDS 5
-#define PICOQUIC_HYSTART_PP_L UINT64_MAX /* infinity if paced, L = 8 if non-paced */
+/* Since picoquic is alway paced, L is set to infinity (UINT64_MAX).
+ * Because L is only used to limit the increase function, we don't need it at all. For more information, take a look at
+ * the picoquic_hystart_pp_increase() function.
+ */
+/* #define PICOQUIC_HYSTART_PP_L UINT64_MAX */ /* infinity if paced, L = 8 if non-paced */
 
 typedef struct st_picoquic_hystart_pp_round_t {
     uint64_t last_round_min_rtt;
@@ -113,7 +117,7 @@ typedef struct st_picoquic_hystart_pp_state_t {
 void picoquic_hystart_pp_reset(picoquic_hystart_pp_state_t* hystart_pp_state);
 
 void picoquic_hystart_pp_start_round(picoquic_hystart_pp_round_t* hystart_pp_round);
-uint64_t picoquic_hystart_pp_increase(picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
+uint64_t picoquic_hystart_pp_keep_track_and_increase(/*picoquic_path_t *path_x, */picoquic_hystart_pp_state_t* hystart_pp_state, picoquic_per_ack_state_t* ack_state);
 
 int picoquic_hystart_pp_test(picoquic_hystart_pp_state_t *hystart_pp_state);
 

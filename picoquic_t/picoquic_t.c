@@ -345,8 +345,6 @@ static const picoquic_test_def_t test_table[] = {
     { "satellite_small_up", satellite_small_up_test },
     { "satellite_cubic", satellite_cubic_test },
     { "satellite_cubic_loss", satellite_cubic_loss_test },
-    { "satellite_newreno", satellite_newreno_test },
-    { "satellite_newreno_loss", satellite_newreno_loss_test },
     { "bdp_basic", bdp_basic_test },
     { "bdp_delay", bdp_delay_test },
     { "bdp_ip", bdp_ip_test },
@@ -476,7 +474,8 @@ static const picoquic_test_def_t test_table[] = {
     { "config_option_letters", config_option_letters_test },
     { "config_quic", config_quic_test },
     { "config_usage", config_usage_test },
-    {"hystart_pp", hystart_pp_test }
+    { "hystart_pp", hystart_pp_test },
+    { "playground", playground_test }
 };
 
 static size_t const nb_tests = sizeof(test_table) / sizeof(picoquic_test_def_t);

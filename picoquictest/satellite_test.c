@@ -275,18 +275,6 @@ int satellite_cubic_loss_test()
     return satellite_test_one(picoquic_cubic_algorithm, 100000000, 12100000, 250, 3, 0, 1, 0, 0, 0, 0);
 }
 
-int satellite_newreno_test()
-{
-    /* Should be less than 7 sec per draft etosat, but cubic is much slower */
-    return satellite_test_one(picoquic_newreno_algorithm, 100000000, 20050000, 50, 5, 0, 0, 0, 0, 0, 0);
-}
-
-/* TODO */
-int satellite_newreno_loss_test()
-{
-    /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return satellite_test_one(picoquic_newreno_algorithm, 100000000, UINT64_MAX, 50, 5, 0, 1, 0, 0, 0, 0);
-}
 
 /* Satellite loss interop test, as shown in https://interop.sedrubal.de/
  * 
