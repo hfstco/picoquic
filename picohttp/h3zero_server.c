@@ -29,6 +29,7 @@
 #include "h3zero.h"
 #include "h3zero_common.h"
 #include "democlient.h"
+#include "h3zero_uri.h"
 
 /*
  * Incoming data call back.
@@ -140,23 +141,32 @@ int h3zero_server_parse_path(const uint8_t * path, size_t path_length, uint64_t 
 
     *file_error = 0;
 
-    if (path != NULL && path_length == 1 && path[0] == '/') {
+    /* skip query string */
+    size_t path_without_query_string_length = path_length;
+
+    size_t query_offset = h3zero_query_offset(path, path_length);
+    if (query_offset < path_length) {
+        path_without_query_string_length = query_offset - 1;
+    }
+
+    if (path != NULL && path_without_query_string_length == 1 && path[0] == '/') {
         /* Redirect the root requests to the default index so it can be read from file if file is present */
+        /* TODO query string will be overwritten. FIX ME! */
         path = (const uint8_t *)"/index.html";
-        path_length = 11;
+        path_length = path_without_query_string_length = 11;
     }
 
     *echo_size = 0;
-    if (path == NULL || path_length == 0 || path[0] != '/') {
+    if (path == NULL || path_without_query_string_length == 0 || path[0] != '/') {
         ret = -1;
     }
-    else if (web_folder != NULL && demo_server_try_file_path(path, path_length, echo_size,
+    else if (web_folder != NULL && demo_server_try_file_path(path, path_without_query_string_length, echo_size,
         file_path, web_folder, file_error) == 0) {
         ret = 0;
     }
-    else if (path_length > 1 && (path_length != 11 || memcmp(path, "/index.html", 11) != 0)) {
+    else if (path_without_query_string_length > 1 && (path_without_query_string_length != 11 || memcmp(path, "/index.html", 11) != 0)) {
         uint64_t x = 0;
-        for (size_t i = 1; i < path_length; i++) {
+        for (size_t i = 1; i < path_without_query_string_length; i++) {
             if (path[i] < '0' || path[i] > '9') {
                 ret = -1;
                 break;
