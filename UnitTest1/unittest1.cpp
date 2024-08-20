@@ -2268,6 +2268,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(mediatest_video2_probe) {
+            int ret = mediatest_video2_probe_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(mediatest_wifi) {
             int ret = mediatest_wifi_test();
 
@@ -2282,6 +2288,12 @@ namespace UnitTest1
 
         TEST_METHOD(mediatest_suspension) {
             int ret = mediatest_suspension_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(mediatest_suspension2) {
+            int ret = mediatest_suspension2_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -2821,6 +2833,12 @@ namespace UnitTest1
 
         TEST_METHOD(h3zero_settings) {
             int ret = h3zero_settings_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(h3zero_get_content_type_by_path) {
+            int ret = h3zero_get_content_type_by_path_test();
 
             Assert::AreEqual(ret, 0);
         }

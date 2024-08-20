@@ -2464,6 +2464,18 @@ int picoquic_set_path_status(picoquic_cnx_t* cnx, uint64_t unique_path_id, picoq
     return ret;
 }
 
+int picoquic_get_path_addr(picoquic_cnx_t* cnx, uint64_t unique_path_id, int local, struct sockaddr_storage* addr)
+{
+    int ret = 0;
+    int path_id = picoquic_get_path_id_from_unique(cnx, unique_path_id);
+    if (path_id >= 0) {
+        picoquic_store_addr(addr, (struct sockaddr*)
+            ((local) ? &cnx->path[path_id]->local_addr : &cnx->path[path_id]->peer_addr));
+    }
+
+    return ret;
+}
+
 /* Reset the path MTU, for example if too many packet losses are detected */
 void picoquic_reset_path_mtu(picoquic_path_t* path_x)
 {
@@ -4909,6 +4921,11 @@ void picoquic_set_priority_limit_for_bypass(picoquic_cnx_t* cnx, uint8_t priorit
 void picoquic_set_feedback_loss_notification(picoquic_cnx_t* cnx, unsigned int should_notify)
 {
     cnx->is_lost_feedback_notification_required = should_notify;
+}
+
+void picoquic_request_forced_probe_up(picoquic_cnx_t* cnx, unsigned int request_forced_probe_up)
+{
+    cnx->is_forced_probe_up_required = request_forced_probe_up;
 }
 
 void picoquic_subscribe_pacing_rate_updates(picoquic_cnx_t* cnx, uint64_t decrease_threshold, uint64_t increase_threshold)
