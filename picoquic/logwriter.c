@@ -1227,7 +1227,7 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
 
     bytestream_buf stream_msg;
     bytestream* ps_msg = bytestream_buf_init(&stream_msg, BYTESTREAM_MAX_BUFFER_SIZE);
-    int path_max = (cnx->is_multipath_enabled || cnx->is_simple_multipath_enabled) ? cnx->nb_paths : 1;
+    int path_max = (cnx->is_multipath_enabled) ? cnx->nb_paths : 1;
 
     for (int path_id = 0; path_id < path_max; path_id++)
     {
