@@ -188,6 +188,17 @@ int svg_cc_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     return 0;
 }
 
+int svg_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
+{
+#ifdef _WINDOWS
+    UNREFERENCED_PARAMETER(time);
+    UNREFERENCED_PARAMETER(path_id);
+    UNREFERENCED_PARAMETER(s);
+    UNREFERENCED_PARAMETER(ptr);
+#endif
+    return 0;
+}
+
 int svg_info_message(uint64_t time, bytestream* s, void* ptr)
 {
 #ifdef _WINDOWS
@@ -228,6 +239,7 @@ int svg_convert(const picoquic_connection_id_t * cid, FILE * f_binlog, FILE * f_
     ctx.packet_dropped = svg_packet_dropped;
     ctx.packet_buffered = svg_packet_buffered;
     ctx.cc_update = svg_cc_update;
+    ctx.cr_update = svg_cr_update;
     ctx.info_message = svg_info_message;
     ctx.ptr = &svg;
 

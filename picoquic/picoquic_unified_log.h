@@ -103,6 +103,9 @@ typedef void (*picoquic_log_close_connection_fn)(picoquic_cnx_t* cnx);
 /* log congestion control parameters */
 typedef void (*picoquic_log_cc_dump_fn)(picoquic_cnx_t* cnx, uint64_t current_time);
 
+/* log careful resume parameters */
+typedef void (*picoquic_log_cr_dump_fn)(picoquic_cnx_t* cnx, uint64_t current_time);
+
 /* close resource allocated for logging in QUIC context */
 typedef void (*picoquic_log_quic_close)(picoquic_quic_t* quic);
 
@@ -125,6 +128,7 @@ typedef struct st_picoquic_unified_logging_t {
     picoquic_log_new_connection_fn log_new_connection;
     picoquic_log_close_connection_fn log_close_connection;
     picoquic_log_cc_dump_fn log_cc_dump;
+    picoquic_log_cr_dump_fn log_cr_dump;
 } picoquic_unified_logging_t;
 
 /* Log an event that cannot be attached to a specific connection */
@@ -186,6 +190,8 @@ void picoquic_log_close_connection(picoquic_cnx_t* cnx);
 /* log congestion control parameters */
 void picoquic_log_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time);
 
+/* log careful resume parameters */
+void picoquic_log_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time);
 
 #ifdef __cplusplus
 }

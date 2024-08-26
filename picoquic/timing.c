@@ -90,23 +90,55 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
 /* The BDP seed is validated upon receiving the first RTT measurement */
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
-    if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
-        !cnx->cwin_notified_from_seed &&
-        cnx->seed_rtt_min <= rtt_sample &&
-        (rtt_sample - cnx->seed_rtt_min) < cnx->seed_rtt_min / 4) {
+    if (getenv("PREVIOUS_RTT") && getenv("PREVIOUS_CWND_BYTES")) {
         uint8_t* ip_addr;
         uint8_t ip_addr_length;
         picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+        picoquic_seed_bandwidth(cnx, strtoull(getenv("PREVIOUS_RTT"), NULL, 10), strtoull(getenv("PREVIOUS_CWND_BYTES"), NULL, 10), ip_addr, ip_addr_length);
+    }
 
-        if (ip_addr_length == cnx->seed_ip_addr_length &&
-            memcmp(ip_addr, cnx->seed_ip_addr, ip_addr_length) == 0) {
-            picoquic_per_ack_state_t ack_state = { 0 };
-            ack_state.nb_bytes_acknowledged = (uint64_t)cnx->seed_cwin;
-            cnx->cwin_notified_from_seed = 1;
-            cnx->congestion_alg->alg_notify(cnx, path_x,
-                picoquic_congestion_notification_seed_cwin,
-                &ack_state, current_time);
-        }
+    if (cnx->congestion_alg->congestion_algorithm_number == PICOQUIC_CC_ALGO_NUMBER_CUBIC) {
+        /* In case of careful resume the validation of the path is split. In this function we will just check that the
+         * IP adress matches the ticket. The validation of the path happens in the specific CC algo.
+         */
+        if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
+            !cnx->cwin_notified_from_seed) {
+            uint8_t* ip_addr;
+            uint8_t ip_addr_length;
+            picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+
+            if (ip_addr_length == cnx->seed_ip_addr_length &&
+                memcmp(ip_addr, cnx->seed_ip_addr, ip_addr_length) == 0) {
+                picoquic_per_ack_state_t ack_state = { 0 };
+                ack_state.nb_bytes_acknowledged = cnx->seed_cwin;
+                ack_state.one_way_delay = cnx->seed_rtt_min;
+                ack_state.rtt_measurement = rtt_sample;
+                cnx->cwin_notified_from_seed = 1;
+                cnx->congestion_alg->alg_notify(cnx, path_x,
+                    picoquic_congestion_notification_seed_cwin,
+                    &ack_state, current_time);
+                }
+            }
+    }
+    else {
+        if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
+            !cnx->cwin_notified_from_seed &&
+            cnx->seed_rtt_min <= rtt_sample &&
+            (rtt_sample - cnx->seed_rtt_min) < cnx->seed_rtt_min / 4) {
+            uint8_t* ip_addr;
+            uint8_t ip_addr_length;
+            picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+
+            if (ip_addr_length == cnx->seed_ip_addr_length &&
+                memcmp(ip_addr, cnx->seed_ip_addr, ip_addr_length) == 0) {
+                picoquic_per_ack_state_t ack_state = { 0 };
+                ack_state.nb_bytes_acknowledged = (uint64_t)cnx->seed_cwin;
+                cnx->cwin_notified_from_seed = 1;
+                cnx->congestion_alg->alg_notify(cnx, path_x,
+                    picoquic_congestion_notification_seed_cwin,
+                    &ack_state, current_time);
+                }
+            }
     }
 }
 
@@ -347,6 +379,15 @@ void picoquic_update_path_rtt(picoquic_cnx_t* cnx, picoquic_path_t* old_path, pi
         }
 
         /* On very first sample, apply the saved BDP */
+        /* *Reconnaissance Phase (Rate-limited sender): If the sender is
+            rate-limited [RFC7661], it might send insufficient data to be
+            able to validate transmission at the higher rate. Careful Resume
+            is allowed to remain in the Reconnaissance Phase and to not
+            transition to the Unvalidated Phase until the sender has more
+            data ready to send in the transmission buffer than is permitted
+            by the current CWND. In some implementations, the decision to
+            enter the Unvalidated Phase could require coordination with the
+            management of buffers in the interface to the higher layers. */
         if (is_first) {
             picoquic_validate_bdp_seed(cnx, old_path, rtt_estimate, current_time);
         }

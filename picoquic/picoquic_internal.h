@@ -82,7 +82,7 @@ extern "C" {
 
 #define PICOQUIC_MICROSEC_STATELESS_RESET_INTERVAL_DEFAULT 100000ull /* max 10 stateless reset by second by default */
 
-#define PICOQUIC_CWIN_INITIAL (10 * PICOQUIC_MAX_PACKET_SIZE)
+#define PICOQUIC_CWIN_INITIAL (((char*)getenv("PICOQUIC_CWIN_INITIAL")) ? (uint64_t)strtoull((char*)getenv("PICOQUIC_CWIN_INITIAL"), NULL, 10) : (10 * PICOQUIC_MAX_PACKET_SIZE))
 #define PICOQUIC_CWIN_MINIMUM (2 * PICOQUIC_MAX_PACKET_SIZE)
 
 #define PICOQUIC_PRIORITY_BYPASS_MAX_RATE 125000
@@ -1088,6 +1088,7 @@ typedef struct st_picoquic_path_t {
     unsigned int path_is_preferred_path : 1;
     unsigned int is_nat_challenge : 1;
     unsigned int is_cc_data_updated : 1;
+    unsigned int is_cr_data_updated : 1;
     unsigned int is_multipath_probe_needed : 1;
     unsigned int was_local_cnxid_retired : 1;
     unsigned int is_ssthresh_initialized : 1;

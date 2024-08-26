@@ -78,6 +78,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/bbr.c
     picoquic/bbr1.c
     picoquic/bytestream.c
+    picoquic/careful_resume.c
     picoquic/cc_common.c
     picoquic/config.c
     picoquic/cubic.c
@@ -281,23 +282,23 @@ macro(set_picoquic_compile_settings)
             CXX_EXTENSIONS YES)
     target_compile_options(${ARGV0}
         PRIVATE
-            $<$<C_COMPILER_ID:Clang>: -O3 -Wall -fno-exceptions
+            $<$<C_COMPILER_ID:Clang>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_C_FLAGS}>
-            $<$<C_COMPILER_ID:AppleClang>: -O3 -Wall -fno-exceptions
+            $<$<C_COMPILER_ID:AppleClang>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_C_FLAGS}>
-            $<$<C_COMPILER_ID:GNU>: -O3 -Wall -fno-exceptions
+            $<$<C_COMPILER_ID:GNU>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -frename-registers -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_C_FLAGS}>
             $<$<C_COMPILER_ID:MSVC>: >
-            $<$<CXX_COMPILER_ID:Clang>: -O3 -Wall -fno-exceptions
+            $<$<CXX_COMPILER_ID:Clang>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_CXX_FLAGS}>
-            $<$<CXX_COMPILER_ID:AppleClang>: -O3 -Wall -fno-exceptions
+            $<$<CXX_COMPILER_ID:AppleClang>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_CXX_FLAGS}>
-            $<$<CXX_COMPILER_ID:GNU>: -O3 -Wall -fno-exceptions
+            $<$<CXX_COMPILER_ID:GNU>: -O0 -Wall -fno-exceptions
                 -fno-signed-zeros -frename-registers -fno-trapping-math
                 ${PICOQUIC_ADDITIONAL_CXX_FLAGS}>
             $<$<CXX_COMPILER_ID:MSVC>: >)

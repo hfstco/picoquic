@@ -89,9 +89,15 @@ static int satellite_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t da
     memset(&client_parameters, 0, sizeof(picoquic_tp_t));
     picoquic_init_transport_parameters(&client_parameters, 1);
     client_parameters.enable_time_stamp = 3;
+    client_parameters.initial_max_data = UINT64_MAX;
+    client_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
+    client_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
     memset(&server_parameters, 0, sizeof(picoquic_tp_t));
     picoquic_init_transport_parameters(&server_parameters, 0);
     server_parameters.enable_time_stamp = 3;
+    server_parameters.initial_max_data = UINT64_MAX;
+    server_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
+    server_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
     if (low_flow || flow_control) {
         /* For the flow control parameters to a small value */
         uint64_t bdp_s = (mbps_up * latency * 2) / 8;
@@ -151,7 +157,7 @@ static int satellite_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t da
         picoquic_cnx_set_pmtud_required(test_ctx->cnx_client, 1);
 
         /* set the binary log on the client side */
-        picoquic_set_binlog(test_ctx->qclient, ".");
+        picoquic_set_qlog(test_ctx->qclient, ".");
         test_ctx->qclient->use_long_log = 1;
         /* Since the client connection was created before the binlog was set, force log of connection header */
         binlog_new_connection(test_ctx->cnx_client);

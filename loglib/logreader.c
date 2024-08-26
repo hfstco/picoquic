@@ -187,6 +187,11 @@ static int binlog_convert_event(bytestream * s, void * ptr)
             ret = ctx->callbacks->cc_update(time, path_id, s, cbptr);
         }
         break;
+    case picoquic_log_event_cr_update:
+        if (ret == 0) {
+            ret = ctx->callbacks->cr_update(time, path_id, s, cbptr);
+        }
+        break;
     case picoquic_log_event_info_message:
         if (ret == 0) {
             ret = ctx->callbacks->info_message(time, s, cbptr);

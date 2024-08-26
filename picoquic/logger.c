@@ -22,15 +22,18 @@
 /*
 * Packet logging.
 */
+#include <cubic.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <newreno.h>
 #include <picotls.h>
 #include "picoquic_internal.h"
 #include "bytestream.h"
 #include "tls_api.h"
 #include "picoquic_unified_log.h"
+#include "cc_common.h"
 
 static void textlog_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2)
@@ -1895,6 +1898,142 @@ static void textlog_congestion_state(FILE* F, picoquic_cnx_t* cnx, uint64_t curr
     fprintf(F, "state: %d\n", (int)cnx->cnx_state);
 }
 
+static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time)
+{
+    picoquic_path_t * path_x = cnx->path[0];
+
+    picoquic_cr_state_t* cr_state;
+    switch (cnx->congestion_alg->congestion_algorithm_number) {
+        case PICOQUIC_CC_ALGO_NUMBER_CUBIC: {
+                picoquic_cubic_state_t* cubic_state = path_x->congestion_alg_state;
+                cr_state = &cubic_state->cr_state;
+            }
+            break;
+        /*case PICOQUIC_CC_ALGO_NUMBER_NEW_RENO: {
+                picoquic_newreno_state_t* nr_state = path_x->congestion_alg_state;
+                cr_state = &nr_state->nrss.cr_state;
+            }
+            break;*/
+        default:
+            cr_state = NULL;
+            break;
+    }
+
+    if (cr_state != NULL) {
+        fprintf(F, "%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
+        textlog_time(F, cnx, current_time, "T= ", ", ");
+        /* CarefulResumePhase =
+         *      "reconnaissance" /
+         *      "unvalidated" /
+         *      "validating" /
+         *      "normal" /
+         *      "safe_retreat"
+         */
+        /* ? old: CarefulResumePhase */
+        switch (cr_state->previous_alg_state) {
+            case picoquic_cr_alg_recon:
+                fprintf(F, "old: %s,", "reconnaissance");
+                break;
+            case picoquic_cr_alg_unval:
+                fprintf(F, "old: %s,", "unvalidated");
+                break;
+            case picoquic_cr_alg_validating:
+                fprintf(F, "old: %s,", "validating");
+                break;
+            case picoquic_cr_alg_normal:
+                fprintf(F, "old: %s,", "normal");
+                break;
+            case picoquic_cr_alg_retreat:
+                fprintf(F, "old: %s,", "retreat");
+                break;
+            default:
+                /* ignore */
+                break;
+        }
+
+        /* new: CarefulResumePhase */
+        switch (cr_state->alg_state) {
+            case picoquic_cr_alg_recon:
+                fprintf(F, "new: %s,", "reconnaissance");
+                break;
+            case picoquic_cr_alg_unval:
+                fprintf(F, "new: %s,", "unvalidated");
+                break;
+            case picoquic_cr_alg_validating:
+                fprintf(F, "new: %s,", "validating");
+                break;
+            case picoquic_cr_alg_normal:
+                fprintf(F, "new: %s,", "normal");
+                break;
+            case picoquic_cr_alg_retreat:
+                fprintf(F, "new: %s,", "retreat");
+                break;
+            default:
+                /* ignore */
+                break;
+        }
+
+        /* CarefulResumeStateParameters = {
+         *      pipesize: uint,
+         *      cr_mark: uint,
+         *      ? congestion_window: uint,
+         *      ? ssthresh: uint
+         * }
+         */
+        /* state_data: CarefulResumeStateParameters */
+        fprintf(F, "pipesize: %d,", (int)cr_state->pipesize);
+        fprintf(F, "cr_mark: %d,", (int)cr_state->cr_mark);
+        fprintf(F, "congestion_window: %d,", (int)cr_state->cwin);
+        fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
+
+        /* CarefulResumeRestoredParameters = {
+         *      previous_congestion_window: uint,
+         *      previous_rtt: float32
+         * }
+         */
+        /* ? restored_data: CarefulResumeRestoredParameters */
+        fprintf(F, "previous_congestion_window: %d,", (int)cr_state->saved_cwnd);
+        fprintf(F, "previous_rtt: %d,", (int)cr_state->saved_rtt);
+
+        /* ? trigger
+         *      ; for the Safe Retreat phase
+         *      "packet_loss" /
+         *      ; for the Unvalidated phase
+         *      "congestion_window_limited" /
+         *      ; for the Validating or Normal phases
+         *      "cr_mark_acknowledged" /
+         *      ; for the Normal phase, when CR not allowed
+         *      "rtt_not_validated" /
+         *      ; for the Safe Retreat phase
+         *      "ECN_CE" /
+         *      ; for the Normal phase 1 RTT after a congestion event
+         *      "exit_recovery" */
+        switch (cr_state->trigger) {
+            case picoquic_cr_trigger_packet_loss:
+                fprintf(F, "tigger: %s\n", "packet_loss");
+                break;
+            case picoquic_cr_trigger_congestion_window_limited:
+                fprintf(F, "tigger: %s\n", "congestion_window_limited");
+                break;
+            case picoquic_cr_trigger_cr_mark_acknowledged:
+                fprintf(F, "tigger: %s\n", "cr_mark_acknowledged");
+                break;
+            case picoquic_cr_trigger_rtt_not_validated:
+                fprintf(F, "tigger: %s\n", "rtt_not_validated");
+                break;
+            case picoquic_cr_trigger_ECN_CE:
+                fprintf(F, "tigger: %s\n", "ECN_CE");
+                break;
+            case picoquic_cr_trigger_exit_recovery:
+                fprintf(F, "tigger: %s\n", "exit_recovery");
+                break;
+            default:
+                /* ignore */
+                break;
+        }
+    }
+}
+
 /*
     From TLS 1.3 spec:
    struct {
@@ -2258,6 +2397,13 @@ static void textlog_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time)
     }
 }
 
+static void textlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
+{
+    if (cnx->quic->F_log != NULL && picoquic_cnx_is_still_logging(cnx)) {
+        textlog_cr_state(cnx->quic->F_log, cnx, current_time);
+    }
+}
+
 
 void picoquic_textlog_close(picoquic_quic_t* quic)
 {
@@ -2287,7 +2433,8 @@ struct st_picoquic_unified_logging_t textlog_functions = {
     textlog_tls_ticket,
     textlog_new_connection,
     textlog_close_connection,
-    textlog_cc_dump
+    textlog_cc_dump,
+    textlog_cr_dump
 };
 
 int picoquic_set_textlog(picoquic_quic_t* quic, char const* textlog_file)

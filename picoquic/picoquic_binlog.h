@@ -54,8 +54,9 @@ typedef enum {
     picoquic_log_event_param_update = 0x0036,
     picoquic_log_event_alpn_update = 0x0037,
     picoquic_log_event_cc_update = 0x0038,
-    picoquic_log_event_stream_update = 0x0039,
-    picoquic_log_event_info_message = 0x003a,
+    picoquic_log_event_cr_update = 0x0039,
+    picoquic_log_event_stream_update = 0x003a,
+    picoquic_log_event_info_message = 0x003b,
 
     picoquic_log_event_frame_sent = 0x0082,
     picoquic_log_event_frame_recv = 0x0083,
@@ -103,6 +104,7 @@ void binlog_new_connection(picoquic_cnx_t * cnx);
 void binlog_close_connection(picoquic_cnx_t * cnx);
 
 void binlog_cc_dump(picoquic_cnx_t * cnx, uint64_t current_time);
+void binlog_cr_dump(picoquic_cnx_t * cnx, uint64_t current_time);
 
 /* Set the binary log folder and start generating per connection traces into it.
  * Set to NULL value to stop binary tracing.

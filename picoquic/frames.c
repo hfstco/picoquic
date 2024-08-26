@@ -1168,7 +1168,7 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
 {
     int ret = 0;
     uint64_t should_notify = 0;
-    /* Is there such a stream, is it still open? */
+    /* Is there such a stream, is it still o pen? */
     picoquic_stream_head_t* stream;
     uint64_t new_fin_offset = offset + length;
 
