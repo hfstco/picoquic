@@ -184,15 +184,15 @@ static void picoquic_cubic_correct_spurious(picoquic_path_t* path_x,
     }
 }
 
-static void cubic_update_bandwidth(picoquic_path_t* path_x)
-{
+/*static void cubic_update_bandwidth(picoquic_path_t* path_x)
+{*/
     /* RTT measurements will happen after the bandwidth is estimated */
-    uint64_t max_win = path_x->peak_bandwidth_estimate * path_x->smoothed_rtt / 1000000;
+    /*uint64_t max_win = path_x->peak_bandwidth_estimate * path_x->smoothed_rtt / 1000000;
     uint64_t min_win = max_win /= 2;
     if (path_x->cwin < min_win) {
         path_x->cwin = min_win;
     }
-}
+}*/
 
 /*
  * Properly implementing Cubic requires managing a number of

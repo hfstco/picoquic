@@ -122,7 +122,7 @@ int main(int argc, char ** argv)
 
     debug_printf_push_stream(stderr);
 
-    appctx.f_binlog = picoquic_open_log_file_for_read(appctx.binlog_name, &appctx.flags, &appctx.log_time);
+    appctx.f_binlog = picoquic_open_cc_log_file_for_read(appctx.binlog_name, &appctx.flags, &appctx.log_time);
     if (appctx.f_binlog == NULL) {
         fprintf(stderr, "Could not open log file %s\n", appctx.binlog_name);
         ret = -1;
