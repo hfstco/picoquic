@@ -20,7 +20,7 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
     //cr_state->alg_state = picoquic_cr_alg_recon;
 
     cr_state->saved_cwnd = UINT64_MAX;
-    /* saved_rtt is not part of the careful resume state because it is part of the ticket. */
+    /* saved_rtt is not part of the careful resume state, because it is only needed to verify the path. */
     /*cr_state->saved_rtt = UINT64_MAX; */
 
     cr_state->cr_mark = 0;
@@ -129,6 +129,7 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_repeat:
         case picoquic_congestion_notification_ecn_ec:
         case picoquic_congestion_notification_timeout:
+            fprintf(stdout, "picoquic_congestion_notification_repeat | picoquic_congestion_notification_ecn_ec | picoquic_congestion_notification_timeout lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
             cr_state->trigger = (notification == picoquic_congestion_notification_ecn_ec) ? picoquic_cr_trigger_ECN_CE : picoquic_cr_trigger_packet_loss;
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
@@ -184,12 +185,9 @@ void picoquic_cr_notify(
             fprintf(stdout, "picoquic_congestion_notification_seed_cwin\n");
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
-                    if (ack_state->rtt_measurement >= ack_state->one_way_delay / 2 &&
-        ack_state->rtt_measurement <= ack_state->one_way_delay  * 10 &&
-        path_x->cwin < cnx->seed_cwin / 2) {
-                    cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
-                    cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
-                    fprintf(stdout, "saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
+                    if (path_x->cwin < ack_state->nb_bytes_acknowledged / 2) {
+                        cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
+                        fprintf(stdout, "saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
                     }
                     break;
                 default:
