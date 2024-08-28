@@ -72,6 +72,8 @@ typedef enum {
     picoquic_option_No_GSO,
     picoquic_option_BDP_frame,
     picoquic_option_CWIN_MAX,
+    picoquic_option_SSLKEYLOG,
+    picoquic_option_AddressDiscovery,
     picoquic_option_HELP
 }  picoquic_option_enum_t;
 
@@ -99,6 +101,7 @@ typedef struct st_picoquic_quic_config_t {
     char *multipath_alt_config;
     int bdp_frame_option;
     uint64_t cwin_max;
+    int address_discovery_mode;
     /* TODO: control other extensions, e.g. time stamp, ack delay */
     /* Common flags */
     unsigned int initial_random;
@@ -106,6 +109,9 @@ typedef struct st_picoquic_quic_config_t {
     unsigned int do_preemptive_repeat : 1;
     unsigned int do_not_use_gso : 1;
     unsigned int disable_port_blocking : 1;
+#ifndef PICOQUIC_WITHOUT_SSLKEYLOG
+    unsigned int enable_sslkeylog : 1;
+#endif
     /* Server only */
     char const* www_dir;
     uint8_t reset_seed[16];
