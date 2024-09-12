@@ -49,6 +49,12 @@ void picoquic_cr_notify(
     switch (notification) {
         case picoquic_congestion_notification_acknowledgement:
             switch (cr_state->alg_state) {
+                case picoquic_cr_alg_recon:
+                    /* A sender is allowed to remain in the Reconnaissance Phase and to not transition to the Unvalidated
+                     * Phase until there is more data in the transmission buffer than can be sent using the current CWND. */
+                    if (path_x->cwin >= cr_state->saved_cwnd / 2) {
+                        picoquic_cr_enter_normal(cr_state, path_x, current_time);
+                    }
                 case picoquic_cr_alg_unval:
                     /* UNVAL: PS+=ACked */
                     /* *Unvalidated Phase (Receiving acknowledgements for reconnaisance
