@@ -52,6 +52,7 @@ void picoquic_cr_notify(
                 case picoquic_cr_alg_recon:
                     /* A sender is allowed to remain in the Reconnaissance Phase and to not transition to the Unvalidated
                      * Phase until there is more data in the transmission buffer than can be sent using the current CWND. */
+                    /* TODO What happens if CWND grows above jump size? */
                     if (path_x->cwin >= cr_state->saved_cwnd / 2) {
                         picoquic_cr_enter_normal(cr_state, path_x, current_time);
                     }
