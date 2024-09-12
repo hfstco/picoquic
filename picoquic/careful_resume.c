@@ -56,6 +56,7 @@ void picoquic_cr_notify(
                     if (path_x->cwin >= cr_state->saved_cwnd / 2) {
                         picoquic_cr_enter_normal(cr_state, path_x, current_time);
                     }
+                break;
                 case picoquic_cr_alg_unval:
                     /* UNVAL: PS+=ACked */
                     /* *Unvalidated Phase (Receiving acknowledgements for reconnaisance
@@ -194,7 +195,7 @@ void picoquic_cr_notify(
                 case picoquic_cr_alg_recon:
                     if (path_x->cwin < ack_state->nb_bytes_acknowledged / 2) {
                         cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
-                        fprintf(stdout, "saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
+                        fprintf(stdout, "set saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
                     }
                     break;
                 default:
