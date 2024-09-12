@@ -556,6 +556,7 @@ void picoquic_cubic_notify(
         /* Compute pacing data */
         picoquic_update_pacing_data(cnx, path_x, cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
             cubic_state->ssthresh == UINT64_MAX);
+        fprintf(stdout, "pacing_rate=%" PRIu64 "\n", path_x->pacing.rate);
     }
 }
 /* Exit slow start on either long delay of high loss
