@@ -321,7 +321,6 @@ int quic_server(const char* server_name, picoquic_quic_config_t * config, int ju
                 picoquic_tp_t client_parameters;
                 memset(&client_parameters, 0, sizeof(picoquic_tp_t));
                 picoquic_init_transport_parameters(&client_parameters, 1);
-                client_parameters.enable_time_stamp = 3;
                 client_parameters.initial_max_data = UINT64_MAX;
                 client_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
                 client_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
@@ -929,7 +928,6 @@ int quic_client(const char* ip_address_text, int server_port,
             picoquic_tp_t client_parameters;
             memset(&client_parameters, 0, sizeof(picoquic_tp_t));
             picoquic_init_transport_parameters(&client_parameters, 1);
-            client_parameters.enable_time_stamp = 3;
             client_parameters.initial_max_data = UINT64_MAX;
             client_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
             client_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
