@@ -96,6 +96,7 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
         uint8_t ip_addr_length;
         picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
         picoquic_seed_bandwidth(cnx, strtoull(getenv("PREVIOUS_RTT"), NULL, 10), strtoull(getenv("PREVIOUS_CWND_BYTES"), NULL, 10), ip_addr, ip_addr_length);
+        fprintf(stdout, "set CAREFULE RESUME variables forcefully.\nPREVIOUS_CWND_BYTES=%s, PREVIOUS_RTT=%s", getenv("PREVIOUS_CWND_BYTES"), getenv("PREVIOUS_RTT"));
     }
 
     if (cnx->congestion_alg->congestion_algorithm_number == PICOQUIC_CC_ALGO_NUMBER_CUBIC) {

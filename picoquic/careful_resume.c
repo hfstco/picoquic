@@ -2,9 +2,7 @@
 // Created by Matthias Hofstätter on 16.03.24.
 //
 
-
-#include <inttypes.h>
-#include <picoquic_internal.h>
+#include "picoquic_internal.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +15,7 @@ void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, u
     memset(cr_state, 0, sizeof(picoquic_cr_state_t));
     cr_state->previous_alg_state = picoquic_cr_alg_recon;
     /* Start in recon phase. */
-    //cr_state->alg_state = picoquic_cr_alg_recon;
+    cr_state->alg_state = picoquic_cr_alg_recon;
 
     cr_state->saved_cwnd = UINT64_MAX;
     /* saved_rtt is not part of the careful resume state, because it is only needed to verify the path. */
@@ -206,7 +204,7 @@ void picoquic_cr_enter_recon(picoquic_cr_state_t* cr_state, picoquic_path_t* pat
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    fprintf(stdout, "%s", "picoquic_resume_enter_recon()\n");
+    fprintf(stdout, "%-30" PRIu64 "%s", (current_time - path_x->cnx->start_time), "picoquic_resume_enter_recon()\n");
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_recon;
@@ -233,7 +231,7 @@ void picoquic_cr_enter_unval(picoquic_cr_state_t* cr_state, picoquic_path_t* pat
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    fprintf(stdout, "picoquic_cr_enter_unval(unique_path_id=%" PRIu64 ")\n", path_x->unique_path_id);
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_unval(unique_path_id=%" PRIu64 ")\n", (current_time - path_x->cnx->start_time), path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_unval;
@@ -275,8 +273,8 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    fprintf(stdout, "picoquic_cr_enter_validating(unique_path_id=%" PRIu64 ")\n",
-           path_x->unique_path_id);
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(unique_path_id=%" PRIu64 ")\n",
+           (current_time - path_x->cnx->start_time), path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_validating;
@@ -314,8 +312,8 @@ void picoquic_cr_enter_retreat(picoquic_cr_state_t* cr_state, picoquic_path_t* p
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    fprintf(stdout, "picoquic_cr_enter_retreat(unique_path_id=%" PRIu64 ")\n",
-           path_x->unique_path_id);
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_retreat(unique_path_id=%" PRIu64 ")\n",
+           (current_time - path_x->cnx->start_time), path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_retreat;
@@ -366,8 +364,8 @@ void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_path_t* pa
                   "saved_cwnd=%" PRIu64 ", cr_mark=%" PRIu64 ", jump_cwnd=%" PRIu64 ", pipesize=%" PRIu64 ", ssthresh=%" PRIu64"\n",
                     cr_state->cwin, path_x->bytes_in_transit, path_x->delivered, path_x->rtt_min,
                     cr_state->saved_cwnd, cr_state->cr_mark, cr_state->jump_cwnd, cr_state->pipesize, cr_state->ssthresh);
-    fprintf(stdout, "picoquic_cr_enter_normal(unique_path_id=%" PRIu64 ")\n",
-           path_x->unique_path_id);
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_normal(unique_path_id=%" PRIu64 ")\n",
+           (current_time - path_x->cnx->start_time), path_x->unique_path_id);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_normal;

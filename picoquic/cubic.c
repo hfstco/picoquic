@@ -19,10 +19,10 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "cubic.h"
 #include "picoquic_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include "cubic.h"
 
 void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
@@ -556,7 +556,6 @@ void picoquic_cubic_notify(
         /* Compute pacing data */
         picoquic_update_pacing_data(cnx, path_x, cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
             cubic_state->ssthresh == UINT64_MAX);
-        fprintf(stdout, "pacing_rate=%" PRIu64 "\n", path_x->pacing.rate);
     }
 }
 /* Exit slow start on either long delay of high loss
