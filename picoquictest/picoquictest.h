@@ -518,6 +518,10 @@ int picowt_baton_multi_test();
 int picowt_baton_random_test();
 int picowt_baton_wrong_test();
 int picowt_baton_uri_test();
+int careful_resume_simple_test();
+int careful_resume_overshoot_test();
+int careful_resume_undershoot_test();
+int careful_resume_rtt_not_valid_test();
 
 int cplusplustest();
 
