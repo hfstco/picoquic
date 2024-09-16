@@ -127,7 +127,6 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_repeat:
         case picoquic_congestion_notification_ecn_ec:
         case picoquic_congestion_notification_timeout:
-            fprintf(stdout, "picoquic_congestion_notification_repeat | picoquic_congestion_notification_ecn_ec | picoquic_congestion_notification_timeout lost_packet_number=%" PRIu64 "\n", ack_state->lost_packet_number);
             cr_state->trigger = (notification == picoquic_congestion_notification_ecn_ec) ? picoquic_cr_trigger_ECN_CE : picoquic_cr_trigger_packet_loss;
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
@@ -159,16 +158,14 @@ void picoquic_cr_notify(
             /* path_x->bytes_in_transit >= path_x->cwin */
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
-                    fprintf(stdout, "bytes_in_transit=%" PRIu64 " >= cwin=%" PRIu64 "\n", path_x->bytes_in_transit,
-                        cr_state->cwin);
                     if (cr_state->saved_cwnd != UINT64_MAX) {
+                        fprintf(stdout, "bytes_in_transit=%" PRIu64 " >= cwin=%" PRIu64 "\n", path_x->bytes_in_transit,
+                        cr_state->cwin);
                         picoquic_cr_enter_unval(cr_state, path_x, current_time);
                     }
                     break;
                 case picoquic_cr_alg_unval:
                     /* UNVAL: If( >1 RTT has passed or FS=CWND or first unvalidated packet is ACKed), enter Validating */
-                    fprintf(stdout, "bytes_in_transit=%" PRIu64 " >= cwin=%" PRIu64 "\n", path_x->bytes_in_transit,
-                        cr_state->cwin);
                     cr_state->trigger = picoquic_cr_trigger_congestion_window_limited;
                     picoquic_cr_enter_validating(cr_state, path_x, current_time);
                     break;
@@ -177,14 +174,14 @@ void picoquic_cr_notify(
             }
             break;
         case picoquic_congestion_notification_reset:
-            /* careful resume state resets with congestion control algorithm. */
+            picoquic_cr_reset(cr_state, path_x, current_time);
             break;
         case picoquic_congestion_notification_seed_cwin:
-            fprintf(stdout, "picoquic_congestion_notification_seed_cwin\n");
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_recon:
                     if (path_x->cwin < ack_state->nb_bytes_acknowledged / 2) {
                         cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
+                        cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
                         fprintf(stdout, "set saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
                     }
                     break;
