@@ -25,6 +25,7 @@
 #include "cubic.h"
 
 void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
+    fprintf(stdout, "picoquic_cubic_reset\n");
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
@@ -42,6 +43,7 @@ void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* 
 
 void picoquic_cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t current_time)
 {
+    fprintf(stdout, "picpquic_cubic_init\n");
     /* Initialize the state of the congestion control algorithm */
     picoquic_cubic_state_t* cubic_state = (picoquic_cubic_state_t*)malloc(sizeof(picoquic_cubic_state_t));
 #ifdef _WINDOWS
