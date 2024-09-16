@@ -581,6 +581,7 @@ void picoquic_seed_ticket(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
         if (path_x->bandwidth_estimate_max > 0) {
             target_cwin = (path_x->bandwidth_estimate_max * path_x->rtt_min) / 1000000ull;
         }
+        fprintf(stdout, "picoquic_seed_ticket; bandwidth_estimate_max=%" PRIu64 ", rtt_min=%" PRIu64 ", target_cwin=" PRIu64 "\n", path_x->bandwidth_estimate, path_x->rtt_min, target_cwin);
         picoquic_get_ip_addr((struct sockaddr*) & path_x->peer_addr, &ip_addr, &ip_addr_length);
         (void) picoquic_remember_issued_ticket(cnx->quic, cnx->issued_ticket_id,
             path_x->rtt_min, target_cwin, ip_addr, ip_addr_length);

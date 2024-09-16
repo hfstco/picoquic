@@ -46,6 +46,7 @@ typedef struct st_picoquic_cubic_state_t {
 } picoquic_cubic_state_t;
 
 static void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
+    fprintf(stdout, "before picoquic_cubic_reset; cwin=%" PRIu64 "\n", path_x->cwin);
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
@@ -63,6 +64,7 @@ static void picoquic_cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_p
 
 static void picoquic_cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t current_time)
 {
+    fprintf(stdout, "beforepicoquic_cubic_init; cwin=%" PRIu64 "\n", path_x->cwin);
     /* Initialize the state of the congestion control algorithm */
     picoquic_cubic_state_t* cubic_state = (picoquic_cubic_state_t*)malloc(sizeof(picoquic_cubic_state_t));
 #ifdef _WINDOWS
@@ -72,6 +74,7 @@ static void picoquic_cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, u
     if (cubic_state != NULL) {
         picoquic_cubic_reset(cubic_state, path_x, current_time);
     }
+    fprintf(stdout, "after picoquic_cubic_init; cwin=%" PRIu64 "\n", path_x->cwin);
 }
 
 static double picoquic_cubic_root(double x)
