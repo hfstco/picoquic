@@ -1,0 +1,58 @@
+name: picoquic-docker-debug
+services:
+  client:
+    build:
+      context: client/
+      dockerfile: Dockerfile
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      - server
+    networks:
+      client-net:
+        ipv4_address: 192.168.90.3
+
+  server:
+    build:
+      context: server/
+      dockerfile: Dockerfile
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    networks:
+      server-net:
+        ipv4_address: 192.168.91.3
+
+  netem:
+    build:
+      context: netem/
+      dockerfile: Dockerfile
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    networks:
+      client-net:
+        ipv4_address: 192.168.90.2
+      server-net:
+        ipv4_address: 192.168.91.2
+
+networks:
+  client-net:
+    driver_opts:
+      com.docker.network.bridge.name: client-net
+      com.docker.network.container_iface_prefix: client-net
+    ipam:
+      config:
+        - subnet: 192.168.90.0/24
+
+  server-net:
+    driver_opts:
+      com.docker.network.bridge.name: server-net
+      com.docker.network.container_iface_prefix: server-net
+    ipam:
+      config:
+        - subnet: 192.168.91.0/24
