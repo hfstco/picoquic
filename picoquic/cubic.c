@@ -216,6 +216,7 @@ void picoquic_cubic_notify(
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
                 fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_acknowledgement\n", (current_time - path_x->cnx->start_time));
+                fprintf(stdout, "pacing_rate=%" PRIu64 ", packet_time_microsec=%" PRIu64 ", cwin_max=%" PRIu64 "\n", path_x->pacing.rate, path_x->pacing.packet_time_microsec, cnx->quic->cwin_max);
                 //cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     /* +------+---------+---------+------------+-----------+------------+
@@ -564,7 +565,6 @@ void picoquic_cubic_notify(
         /* Compute pacing data */
         picoquic_update_pacing_data(cnx, path_x, cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
             cubic_state->ssthresh == UINT64_MAX);
-        fprintf(stdout, "pacing_rate=%" PRIu64 ", packet_time_microsec=%" PRIu64 ", cwin_max=%" PRIu64 "\n", path_x->pacing.rate, path_x->pacing.packet_time_microsec, cnx->quic->cwin_max);
     }
 }
 /* Exit slow start on either long delay of high loss
