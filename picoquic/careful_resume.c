@@ -183,6 +183,11 @@ void picoquic_cr_notify(
                         cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
                         cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
                         fprintf(stdout, "set saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
+
+                        /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
+                        if (path_x->bytes_in_transit >= path_x->cwin) {
+                            picoquic_cr_enter_unval(cr_state, path_x, current_time);
+                        }
                     }
                     break;
                 default:
