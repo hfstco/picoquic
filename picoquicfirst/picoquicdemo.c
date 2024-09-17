@@ -317,6 +317,15 @@ int quic_server(const char* server_name, picoquic_quic_config_t * config, int ju
 
                 picoquic_use_unique_log_names(qserver, 1);
 
+                /* Disable flow control. */
+                picoquic_tp_t client_parameters;
+                memset(&client_parameters, 0, sizeof(picoquic_tp_t));
+                picoquic_init_transport_parameters(&client_parameters, 1);
+                client_parameters.initial_max_data = UINT64_MAX;
+                client_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
+                client_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
+                picoquic_set_default_tp(qserver, &client_parameters);
+
                 if (config->qlog_dir != NULL)
                 {
                     picoquic_set_qlog(qserver, config->qlog_dir);
@@ -914,6 +923,13 @@ int quic_client(const char* ip_address_text, int server_port,
             /* Set PMTUD policy to delayed on the client, leave to default=basic on server */
             picoquic_cnx_set_pmtud_policy(cnx_client, picoquic_pmtud_delayed);
             picoquic_set_default_pmtud_policy(qclient, picoquic_pmtud_delayed);
+
+            /* Disable flow control. */
+            cnx_client->local_parameters.initial_max_data = UINT64_MAX;
+            cnx_client->local_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
+            cnx_client->local_parameters.initial_max_stream_data_uni = UINT64_MAX;
+            cnx_client->maxdata_local = UINT64_MAX;
+            fprintf(stdout, "flow control disabled.\n");
 
             if (is_siduck) {
                 picoquic_set_callback(cnx_client, siduck_callback, siduck_ctx);
