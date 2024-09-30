@@ -215,10 +215,10 @@ void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_acknowledgement\n", (current_time - path_x->cnx->start_time));
+                //fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_acknowledgement\n", (current_time - path_x->cnx->start_time));
 
                 /* Report pacing. */
-                fprintf(stdout, "pacing_rate=%" PRIu64 ", packet_time_microsec=%" PRIu64 "\n", path_x->pacing.rate, path_x->pacing.packet_time_microsec);
+                //fprintf(stdout, "pacing_rate=%" PRIu64 ", packet_time_microsec=%" PRIu64 "\n", path_x->pacing.rate, path_x->pacing.packet_time_microsec);
 
                 //cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
@@ -237,7 +237,7 @@ void picoquic_cubic_notify(
                         cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
                         picoquic_hystart_increase(path_x, &cubic_state->rtt_filter,
                                                   ack_state->nb_bytes_acknowledged);
-                    }
+                        }
 
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= cubic_state->ssthresh) {
@@ -245,16 +245,14 @@ void picoquic_cubic_notify(
                         path_x->is_ssthresh_initialized = 1;
                         picoquic_cubic_enter_avoidance(cubic_state, current_time);
                     }
-
-                    /* Update careful resume state. */
-                    cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                    cubic_state->cr_state.cwin = path_x->cwin;
-
-                    /* Nofify careful resume. */
-                    picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                    cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                    path_x->cwin = cubic_state->cr_state.cwin;
                 }
+
+                /* Update careful resume state. */
+                cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
+
+                /* Nofify careful resume. */
+                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
+                cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
                 break;
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_ecn_ec:
@@ -284,13 +282,11 @@ void picoquic_cubic_notify(
 
                             /* Update careful resume state. */
                             cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.cwin = path_x->cwin;
                         }
 
                         /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
                                            current_time);
-                        path_x->cwin = cubic_state->cr_state.cwin;
                     }
                 break;
             case picoquic_congestion_notification_spurious_repeat:
@@ -300,10 +296,9 @@ void picoquic_cubic_notify(
 
                 /* Update careful resume state. */
                 cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                cubic_state->cr_state.cwin = path_x->cwin;
                 break;
             case picoquic_congestion_notification_rtt_measurement:
-                fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_rtt_measurement\n", (current_time - path_x->cnx->start_time));
+                //fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_rtt_measurement\n", (current_time - path_x->cnx->start_time));
                 /* Using RTT increases as signal to get out of initial slow start */
                         if (cubic_state->ssthresh == UINT64_MAX &&
                             picoquic_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
@@ -342,7 +337,6 @@ void picoquic_cubic_notify(
 
                                 /* Update careful resume state. */
                                 cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                                cubic_state->cr_state.cwin = path_x->cwin;
                             }
                     }
 
@@ -351,7 +345,6 @@ void picoquic_cubic_notify(
                 fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_cwin_blocked\n", (current_time - path_x->cnx->start_time));
                 /* Nofify careful resume. */
                 picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                path_x->cwin = cubic_state->cr_state.cwin;
                 break;
             case picoquic_congestion_notification_reset:
                 fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_reset\n", (current_time - path_x->cnx->start_time));
@@ -359,13 +352,11 @@ void picoquic_cubic_notify(
 
                 /* Update careful resume state. */
                 cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                cubic_state->cr_state.cwin = path_x->cwin;
                 break;
             case picoquic_congestion_notification_seed_cwin:
                 fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_seed_cwin\n", (current_time - path_x->cnx->start_time));
                 if (cubic_state->ssthresh == UINT64_MAX) {
                     picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                    path_x->cwin = cubic_state->cr_state.cwin;
                 }
                 break;
             default:
@@ -387,7 +378,6 @@ void picoquic_cubic_notify(
 
                     /* Update careful resume state. */
                     cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                    cubic_state->cr_state.cwin = path_x->cwin;
                 }
                 /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                 if (path_x->cwin >= cubic_state->ssthresh) {
@@ -397,14 +387,12 @@ void picoquic_cubic_notify(
                 /* Nofify careful resume. */
                 picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                 cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                path_x->cwin = cubic_state->cr_state.cwin;
                 break;
             case picoquic_congestion_notification_spurious_repeat:
                 picoquic_cubic_correct_spurious(path_x, cubic_state, current_time);
 
                 /* Update careful resume state. */
                 cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                cubic_state->cr_state.cwin = path_x->cwin;
                 break;
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_ecn_ec:
@@ -433,13 +421,11 @@ void picoquic_cubic_notify(
                         picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
 
                         /* Update careful resume state. */
-                        cubic_state->cr_state.cwin = path_x->cwin;
                         cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
 
                         /* Nofify careful resume. */
                         picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
                                            current_time);
-                        path_x->cwin = cubic_state->cr_state.cwin;
                     }
                 }
                 break;
@@ -451,7 +437,6 @@ void picoquic_cubic_notify(
 
                 /* Update careful resume state. */
                 cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                cubic_state->cr_state.cwin = path_x->cwin;
                 break;
             case picoquic_congestion_notification_seed_cwin:
             default:
@@ -500,12 +485,10 @@ void picoquic_cubic_notify(
 
                     /* Update careful resume state. */
                     cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
-                    cubic_state->cr_state.cwin = path_x->cwin;
 
                     /* Nofify careful resume. */
                     picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
                                        current_time);
-                    path_x->cwin = cubic_state->cr_state.cwin;
                 }
                 break;
             case picoquic_congestion_notification_repeat:
@@ -535,14 +518,12 @@ void picoquic_cubic_notify(
                         picoquic_cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
 
                         /* Update careful resume state. */
-                        cubic_state->cr_state.cwin = path_x->cwin;
                         cubic_state->cr_state.ssthresh = cubic_state->ssthresh;
                     }
 
                     /* Nofify careful resume. */
                     picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
                                        current_time);
-                    path_x->cwin = cubic_state->cr_state.cwin;
                 }
                 break;
             case picoquic_congestion_notification_spurious_repeat:

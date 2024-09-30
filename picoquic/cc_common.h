@@ -88,20 +88,23 @@ typedef struct st_picoquic_cr_state_t {
     picoquic_cr_alg_state_t previous_alg_state; /* previous state of careful resume. only for qlog and logging. */
     picoquic_cr_alg_state_t alg_state; /* current state of the careful resume algorithm */
 
+    uint64_t start_of_epoch; /* start timestamp of current state in us */
+    uint64_t previous_start_of_epoch; /* start timestamp of previous state in us */
+
     uint64_t saved_rtt; /* observed RTT from previous connection in us */
     uint64_t saved_cwnd; /* observed CWND from previous connection in bytes */
 
     uint64_t cr_mark; /* cr_mark in bytes. */
     uint64_t jump_cwnd; /* jump window size in bytes. */
-    uint64_t pipesize; /* pipesize in bytes */
 
-    uint64_t start_of_epoch; /* start timestamp of current state in us */
-    uint64_t previous_start_of_epoch; /* start timestamp of previous state in us */
+    uint64_t first_unvalidated_byte;
+    uint64_t last_unvalidated_byte;
+
+    uint64_t pipesize; /* pipesize in bytes */
 
     picoquic_cr_trigger_t trigger; /* last trigger triggered. */
 
     /* return values, :/ */
-    uint64_t cwin;
     uint64_t ssthresh; /* TODO and pass slow start threshold by return value? */
 } picoquic_cr_state_t;
 

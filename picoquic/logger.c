@@ -2031,7 +2031,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         /* state_data: CarefulResumeStateParameters */
         fprintf(F, "pipesize: %d,", (int)cr_state->pipesize);
         fprintf(F, "cr_mark: %d,", (int)cr_state->cr_mark);
-        fprintf(F, "congestion_window: %d,", (int)cr_state->cwin);
+        fprintf(F, "congestion_window: %d,", (int)path_x->cwin);
         fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
 
         /* CarefulResumeRestoredParameters = {

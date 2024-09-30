@@ -16,7 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install build-essential git cmake pkg
 RUN git clone https://github.com/hfstco/picoquic.git /picoquic
 WORKDIR /picoquic
 RUN git fetch
-RUN git checkout cr-debug
+RUN git checkout cr
 RUN cmake -DPICOQUIC_FETCH_PTLS=Y .
 RUN make
 
