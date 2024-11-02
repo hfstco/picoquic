@@ -195,6 +195,7 @@ void picoquic_cr_notify(
                         cr_state->saved_cwnd = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
                         cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
                         fprintf(stdout, "set saved_cwnd=%" PRIu64 "\n", cr_state->saved_cwnd);
+                        fprintf(stdout, "bytes_in_transit=%" PRIu64 ", cwin=%" PRIu64 "\n", path_x->bytes_in_transit, path_x->cwin);
 
                         /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
                         if (path_x->bytes_in_transit >= path_x->cwin) {
@@ -261,10 +262,10 @@ void picoquic_cr_enter_unval(picoquic_cr_state_t* cr_state, picoquic_path_t* pat
     cr_state->last_unvalidated_byte = path_x->bytes_sent + cr_state->jump_cwnd;
 
     /* UNVAL: PS=CWND */
-    /* *Unvalidated Phase (Initialising PipeSize): The variable PipeSize
-        if initialised to CWND on entry to the Unvalidated Phase. This
-        records the value before the jump is applied. */
-    cr_state->pipesize = path_x->bytes_in_transit; /* Should be the naerly the same as CWIN */
+    /* *Unvalidated Phase (Initialising PipeSize): The variable PipeSize is initialised to the flight_size on entry to
+     * the Unvalidated Phase. This records the window before a jump is applied.
+     */
+    cr_state->pipesize = path_x->bytes_in_transit;
 
     /* UNVAL: CWND=jump_cwnd */
     /* *Unvalidated Phase (Setting the jump_cwnd): To avoid starving
