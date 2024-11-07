@@ -257,7 +257,7 @@ void picoquic_cubic_notify(
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_ecn_ec:
             case picoquic_congestion_notification_timeout:
-                    fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_repeat | picoquic_congestion_notification_ecn_ec | picoquic_congestion_notification_timeout\n", (current_time - path_x->cnx->start_time));
+                    //fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_repeat | picoquic_congestion_notification_ecn_ec | picoquic_congestion_notification_timeout\n", (current_time - path_x->cnx->start_time));
                     /* For compatibility with Linux-TCP deployments, we implement a filter so
                      * Cubic will only back off after repeated losses, not just after a single loss.
                      */
@@ -342,7 +342,7 @@ void picoquic_cubic_notify(
 
                 break;
             case picoquic_congestion_notification_cwin_blocked:
-                fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_cwin_blocked\n", (current_time - path_x->cnx->start_time));
+                //fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_cwin_blocked\n", (current_time - path_x->cnx->start_time));
                 /* Nofify careful resume. */
                 picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                 break;

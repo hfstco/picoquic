@@ -1307,7 +1307,7 @@ int main(int argc, char** argv)
     int is_client = 0;
     int ret;
 
-    setvbuf(stdout, NULL, _IONBF, 0);
+    //setvbuf(stdout, NULL, _IONBF, 0);
 
 #ifdef _WINDOWS
     WSADATA wsaData = { 0 };

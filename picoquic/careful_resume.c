@@ -119,6 +119,8 @@ void picoquic_cr_notify(
                     if (cr_state->cr_mark >= cr_state->jump_cwnd) {
                         fprintf(stdout, "cr_mark=%" PRIu64 " > jump_cwnd=%" PRIu64 "\n", cr_state->cr_mark,
                             cr_state->jump_cwnd);
+                        fprintf(stdout, "last_time_acked_data_frame_sent=%" PRIu64 ", last_sender_limited_time=%" PRIu64 "\n",
+                            current_time - path_x->last_time_acked_data_frame_sent, current_time - path_x->last_sender_limited_time);
                         cr_state->trigger = picoquic_cr_trigger_cr_mark_acknowledged;
                         cr_state->ssthresh = cr_state->pipesize;
                         picoquic_cr_enter_normal(cr_state, path_x, current_time);
