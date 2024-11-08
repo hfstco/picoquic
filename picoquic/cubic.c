@@ -283,11 +283,11 @@ void picoquic_cubic_notify(
                             /* Update careful resume state. */
                             cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
                         }
-
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
-                                           current_time);
                     }
+
+                    /* Nofify careful resume. */
+                    picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state,
+                                       current_time);
                 break;
             case picoquic_congestion_notification_spurious_repeat:
                 fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_spurious_repeat\n", (current_time - path_x->cnx->start_time));
