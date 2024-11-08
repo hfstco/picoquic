@@ -357,8 +357,8 @@ void picoquic_cr_enter_retreat(picoquic_cr_state_t* cr_state, picoquic_path_t* p
         because the window was not validated. The PipeSize at this point is
         equal to 29 + 34 = 66 packets. Assuming IW=10. The CWND is reset to
         Max(10,ps/2) = Max(10,66/2) = 33 packets. */
-    path_x->cwin = (cr_state->pipesize / 2 >= PICOQUIC_CWIN_INITIAL)
-                       ? cr_state->pipesize / 2
+    path_x->cwin = (cr_state->pipesize * PICOQUIC_CR_BETA >= PICOQUIC_CWIN_INITIAL)
+                       ? cr_state->pipesize * PICOQUIC_CR_BETA
                        : PICOQUIC_CWIN_INITIAL;
 
     /* *Safe Retreat Phase (Removing saved information): The set of saved
