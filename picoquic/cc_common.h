@@ -66,7 +66,7 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
 
 /* Careful resume. */
 
-#define PICOQUIC_CR_BETA 0.5
+#define PICOQUIC_CR_BETA 1.0
 
 typedef enum {
     picoquic_cr_trigger_packet_loss,
