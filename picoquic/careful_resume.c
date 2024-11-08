@@ -122,7 +122,7 @@ void picoquic_cr_notify(
                         fprintf(stdout, "last_time_acked_data_frame_sent=%" PRIu64 ", last_sender_limited_time=%" PRIu64 "\n",
                             current_time - path_x->last_time_acked_data_frame_sent, current_time - path_x->last_sender_limited_time);
                         cr_state->trigger = picoquic_cr_trigger_cr_mark_acknowledged;
-                        cr_state->ssthresh = cr_state->pipesize;
+                        cr_state->ssthresh = cr_state->pipesize * PICOQUIC_CR_BETA;
                         picoquic_cr_enter_normal(cr_state, path_x, current_time);
                     }
                     break;
@@ -357,8 +357,8 @@ void picoquic_cr_enter_retreat(picoquic_cr_state_t* cr_state, picoquic_path_t* p
         because the window was not validated. The PipeSize at this point is
         equal to 29 + 34 = 66 packets. Assuming IW=10. The CWND is reset to
         Max(10,ps/2) = Max(10,66/2) = 33 packets. */
-    path_x->cwin = (cr_state->pipesize * PICOQUIC_CR_BETA >= PICOQUIC_CWIN_INITIAL)
-                       ? cr_state->pipesize * PICOQUIC_CR_BETA
+    path_x->cwin = (cr_state->pipesize / 2 >= PICOQUIC_CWIN_INITIAL)
+                       ? cr_state->pipesize / 2
                        : PICOQUIC_CWIN_INITIAL;
 
     /* *Safe Retreat Phase (Removing saved information): The set of saved
