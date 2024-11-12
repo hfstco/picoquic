@@ -55,7 +55,9 @@ typedef struct qlog_context_st {
     uint64_t old;
     uint64_t new;
     uint64_t pipesize;
-    uint64_t cr_mark;
+    //uint64_t cr_mark;
+    uint64_t first_unvalidated_packet;
+    uint64_t last_unvalidated_packet;
     uint64_t congestion_window; /* TODO maybe reuse cwin var above? */
     uint64_t ssthresh;
     uint64_t previous_congestion_window;
@@ -1501,16 +1503,18 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     uint64_t high_ack_time = 0;
     uint64_t last_time_ack = 0;
 
-    uint64_t old = 0;
-    uint64_t new = 0;
+    uint64_t old_phase = 0;
+    uint64_t new_phase = 0;
 
     uint64_t pipesize = 0;
-    uint64_t cr_mark = 0;
+    //uint64_t cr_mark = 0;
+    uint64_t first_unvalidated_packet = 0;
+    uint64_t last_unvalidated_packet = 0;
     uint64_t congestion_window = 0;
     uint64_t ssthresh = 0;
 
-    uint64_t previous_congestion_window = 0;
-    uint64_t previous_rtt = 0;
+    uint64_t saved_congestion_window = 0;
+    uint64_t saved_rtt = 0;
 
     uint64_t trigger = 0;
 
@@ -1525,16 +1529,18 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
         ret |= byteread_vint(s, &last_time_ack);
     }
 
-    ret |= byteread_vint(s, &old);
-    ret |= byteread_vint(s, &new);
+    ret |= byteread_vint(s, &old_phase);
+    ret |= byteread_vint(s, &new_phase);
 
     ret |= byteread_vint(s, &pipesize);
-    ret |= byteread_vint(s, &cr_mark);
+    //ret |= byteread_vint(s, &cr_mark);
+    ret |= byteread_vint(s, &first_unvalidated_packet);
+    ret |= byteread_vint(s, &last_unvalidated_packet);
     ret |= byteread_vint(s, &congestion_window);
     ret |= byteread_vint(s, &ssthresh);
 
-    ret |= byteread_vint(s, &previous_congestion_window);
-    ret |= byteread_vint(s, &previous_rtt);
+    ret |= byteread_vint(s, &saved_congestion_window);
+    ret |= byteread_vint(s, &saved_rtt);
 
     ret |= byteread_vint(s, &trigger);
 
@@ -1552,9 +1558,9 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
 
         qlog_event_header(f, ctx, delta_time, path_id, "recovery", "cr_phase");
 
-        if (old != ctx->old) {
-            fprintf(f, "%s\"old\": %" PRIu64, comma, old);
-            ctx->old = old;
+        if (old_phase != ctx->old) {
+            fprintf(f, "%s\"old_phase\": %" PRIu64, comma, old_phase);
+            ctx->old = old_phase;
             comma = ",";
         }
 
@@ -1563,8 +1569,8 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             ctx->new = new;
             comma = ",";
         }*/
-        fprintf(f, "%s\"new\": %" PRIu64, comma, new);
-        ctx->new = new;
+        fprintf(f, "%s\"new_phase\": %" PRIu64, comma, new_phase);
+        ctx->new = new_phase;
         comma = ",";
 
         /*if (pipesize != ctx->pipesize) {
@@ -1581,8 +1587,16 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             ctx->cr_mark = cr_mark;
             comma = ",";
         }*/
-        fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
+        /*fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
         ctx->cr_mark = cr_mark;
+        comma = ",";*/
+
+        fprintf(f, "%s\"first_unvalidated_packet\": %" PRIu64, comma, first_unvalidated_packet);
+        ctx->first_unvalidated_packet = first_unvalidated_packet;
+        comma = ",";
+
+        fprintf(f, "%s\"last_unvalidated_packet\": %" PRIu64, comma, last_unvalidated_packet);
+        ctx->last_unvalidated_packet = last_unvalidated_packet;
         comma = ",";
 
         if (congestion_window != ctx->congestion_window) {
@@ -1597,12 +1611,12 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             comma = ",";
         }
 
-        if (previous_congestion_window != ctx->previous_congestion_window || previous_rtt != ctx->previous_rtt) {
-            fprintf(f, "%s\"previous_congestion_window\": %" PRIu64, comma, previous_congestion_window);
-            ctx->previous_congestion_window = previous_congestion_window;
+        if (saved_congestion_window != ctx->previous_congestion_window || saved_rtt != ctx->previous_rtt) {
+            fprintf(f, "%s\"saved_congestion_window\": %" PRIu64, comma, saved_congestion_window);
+            ctx->previous_congestion_window = saved_congestion_window;
             comma = ",";
-            fprintf(f, "%s\"previous_rtt\": %" PRIu64, comma, previous_rtt);
-            ctx->previous_rtt = previous_rtt;
+            fprintf(f, "%s\"saved_rtt\": %" PRIu64, comma, saved_rtt);
+            ctx->previous_rtt = saved_rtt;
             comma = ",";
         }
 
