@@ -81,7 +81,9 @@ static const char* token_store_filename = "demo_token_store.bin";
 #include "performance_log.h"
 #include "picoquic_config.h"
 #include "picoquic_lb.h"
-
+#ifdef PICOQUIC_MEMORY_LOG
+#include "auto_memlog.h"
+#endif
 /*
  * SIDUCK datagram demo call back.
  */
@@ -141,6 +143,14 @@ static int server_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb
 
         if (ret == 0 && cb_ctx->just_once){
             if (!cb_ctx->first_connection_seen && picoquic_get_first_cnx(quic) != NULL) {
+#ifdef PICOQUIC_MEMORY_LOG
+                if (memlog_init(picoquic_get_first_cnx(quic), 1000000, "./memlog.csv") != 0) {
+                    fprintf(stderr, "Could not initialize memlog as ./memlog.csv\n");
+                }
+                else {
+                    fprintf(stdout, "Initialized memlog as ./memlog.csv\n");
+                }
+#endif
                 cb_ctx->first_connection_seen = 1;
                 fprintf(stdout, "First connection noticed.\n");
             } else if (cb_ctx->first_connection_seen && picoquic_get_first_cnx(quic) == NULL) {
@@ -1196,7 +1206,7 @@ int quic_client(const char* ip_address_text, int server_port,
                 if (config->multipath_option != 0) {
                     for (int i = 0; i < cnx_client->nb_paths; i++) {
                         printf("Path[%d], packets sent: %" PRIu64 "\n", i,
-                            cnx_client->path[i]->path_packet_number);
+                            cnx_client->path[i]->pkt_ctx.send_sequence);
                     }
                 }
                 /* Print details on system call durations */

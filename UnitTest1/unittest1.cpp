@@ -368,6 +368,20 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(ackfrq_basic)
+        {
+            int ret = ackfrq_basic_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(ackfrq_short)
+        {
+            int ret = ackfrq_short_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(test_sim_link)
         {
             int ret = sim_link_test();
@@ -1679,13 +1693,6 @@ namespace UnitTest1
         TEST_METHOD(qlog_trace_ecn)
         {
             int ret = qlog_trace_ecn_test();
-
-            Assert::AreEqual(ret, 0);
-        }
-
-        TEST_METHOD(path_packet_queue)
-        {
-            int ret = path_packet_queue_test();
 
             Assert::AreEqual(ret, 0);
         }

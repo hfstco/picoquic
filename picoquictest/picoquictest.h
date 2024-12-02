@@ -53,6 +53,8 @@ int sacktest();
 int StreamZeroFrameTest();
 int sendacktest();
 int sendack_loop_test();
+int ackfrq_basic_test();
+int ackfrq_short_test();
 #if 0
 /* The TLS API connect test is only useful when debugging issues step by step */
 int tls_api_connect_test();
@@ -222,7 +224,6 @@ int qlog_trace_test();
 int qlog_trace_auto_test();
 int qlog_trace_only_test();
 int qlog_trace_ecn_test();
-int path_packet_queue_test();
 int perflog_test();
 int rebinding_stress_test();
 int many_short_loss_test();
@@ -266,6 +267,7 @@ int satellite_preemptive_fc_test();
 int satellite_small_test();
 int satellite_small_up_test();
 int satellite_cubic_test();
+int satellite_cubic_seeded_test();
 int satellite_cubic_loss_test();
 int bdp_basic_test();
 int bdp_reno_test();
