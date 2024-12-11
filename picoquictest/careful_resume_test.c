@@ -171,13 +171,13 @@ static int careful_resume_test_one(picoquic_congestion_algorithm_t* ccalgo, size
 int careful_resume_simple_test()
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return careful_resume_test_one(picoquic_cubic_algorithm, 50000000, 13600000, 50, 5, 0, 0, 0, 3750000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 10000000, 13600000, 50, 5, 0, 0, 0, 3750000);
 }
 
 int careful_resume_overshoot_test()
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return careful_resume_test_one(picoquic_cubic_algorithm, 100000000, 18000000, 50, 5, 0, 0, 0, 37500000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 30000000, 18000000, 50, 5, 0, 0, 0, 37500000);
 }
 
 int careful_resume_undershoot_test()

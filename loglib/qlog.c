@@ -1552,12 +1552,34 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             fprintf(f, "\n");
         }
 
-        qlog_event_header(f, ctx, delta_time, path_id, "recovery", "cr_phase");
+        qlog_event_header(f, ctx, delta_time, path_id, "recovery", "careful_resume_phase_updated");
 
         if (old_phase != ctx->old) {
-            fprintf(f, "%s\"old_phase\": %" PRIu64, comma, old_phase);
+            switch (old_phase) {
+                case 0:
+                    fprintf(f, "%s\"old_phase\": \"observe\"", comma);
+                break;
+                case 1:
+                    fprintf(f, "%s\"old_phase\": \"reconnaissance\"", comma);
+                break;
+                case 2:
+                    fprintf(f, "%s\"old_phase\": \"unvalidated\"", comma);
+                break;
+                case 3:
+                    fprintf(f, "%s\"old_phase\": \"validating\"", comma);
+                break;
+                case 4:
+                    fprintf(f, "%s\"old_phase\": \"safe_retreat\"", comma);
+                break;
+                case 100:
+                    fprintf(f, "%s\"old_phase\": \"normal\"", comma);
+                break;
+                default:
+                    fprintf(f, "%s\"old_phase\": \"NULL\"", comma);
+                break;
+            }
             ctx->old = old_phase;
-            comma = ",";
+            comma = ", ";
         }
 
         /* if (new != ctx->new) {
@@ -1565,62 +1587,74 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             ctx->new = new;
             comma = ",";
         }*/
-        fprintf(f, "%s\"new_phase\": %" PRIu64, comma, new_phase);
+        switch (new_phase) {
+            case 0:
+                fprintf(f, "%s\"new_phase\": \"observe\"", comma);
+            break;
+            case 1:
+                fprintf(f, "%s\"new_phase\": \"reconnaissance\"", comma);
+            break;
+            case 2:
+                fprintf(f, "%s\"new_phase\": \"unvalidated\"", comma);
+            break;
+            case 3:
+                fprintf(f, "%s\"new_phase\": \"validating\"", comma);
+            break;
+            case 4:
+                fprintf(f, "%s\"new_phase\": \"safe_retreat\"", comma);
+            break;
+            case 100:
+                fprintf(f, "%s\"new_phase\": \"normal\"", comma);
+            break;
+            default:
+                fprintf(f, "%s\"new_phase\": \"NULL\"", comma);
+            break;
+        }
         ctx->new = new_phase;
-        comma = ",";
+        comma = ", ";
 
-        /*if (pipesize != ctx->pipesize) {
-            fprintf(f, "%s\"pipesize\": %" PRIu64, comma, pipesize);
-            ctx->pipesize = pipesize;
-            comma = ",";
-        }*/
-        fprintf(f, "%s\"pipesize\": %" PRIu64, comma, pipesize);
+        /* CarefulResumeStateParameters */
+        fprintf(f, "%s\"state_data\": {", comma);
+
+        fprintf(f, "\"pipesize\": %" PRIu64, pipesize);
         ctx->pipesize = pipesize;
-        comma = ",";
-
-        /*if (cr_mark != ctx->cr_mark) {
-            fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
-            ctx->cr_mark = cr_mark;
-            comma = ",";
-        }*/
-        /*fprintf(f, "%s\"cr_mark\": %" PRIu64, comma, cr_mark);
-        ctx->cr_mark = cr_mark;
-        comma = ",";*/
+        comma = ", ";
 
         fprintf(f, "%s\"first_unvalidated_packet\": %" PRIu64, comma, first_unvalidated_packet);
         ctx->first_unvalidated_packet = first_unvalidated_packet;
-        comma = ",";
+        comma = ", ";
 
         fprintf(f, "%s\"last_unvalidated_packet\": %" PRIu64, comma, last_unvalidated_packet);
         ctx->last_unvalidated_packet = last_unvalidated_packet;
-        comma = ",";
+        comma = ", ";
 
         if (congestion_window != ctx->congestion_window) {
             fprintf(f, "%s\"congestion_window\": %" PRIu64, comma, congestion_window);
             ctx->congestion_window = congestion_window;
-            comma = ",";
+            comma = ", ";
         }
 
         if (ssthresh != ctx->ssthresh) {
             fprintf(f, "%s\"ssthresh\": %" PRIu64, comma, ssthresh);
             ctx->ssthresh = ssthresh;
-            comma = ",";
         }
 
-        if (saved_congestion_window != ctx->previous_congestion_window || saved_rtt != ctx->previous_rtt) {
-            fprintf(f, "%s\"saved_congestion_window\": %" PRIu64, comma, saved_congestion_window);
-            ctx->previous_congestion_window = saved_congestion_window;
-            comma = ",";
-            fprintf(f, "%s\"saved_rtt\": %" PRIu64, comma, saved_rtt);
-            ctx->previous_rtt = saved_rtt;
-            comma = ",";
-        }
+        fprintf(f, "}");
+        /* CarefulResumeStateParameters end */
 
-        /*if (previous_rtt != ctx->previous_rtt) {
-            fprintf(f, "%s\"previous_rtt\": %" PRIu64, comma, previous_rtt);
-            ctx->previous_rtt = previous_rtt;
-            comma = ",";
-        }*/
+        /* CarefulResumeRestoredParameters */
+        fprintf(f, "%s\"restored_data\": {", comma);
+
+        fprintf(f, "\"saved_congestion_window\": %" PRIu64, saved_congestion_window);
+        ctx->previous_congestion_window = saved_congestion_window;
+        comma = ", ";
+
+        fprintf(f, "%s\"saved_rtt\": %" PRIu64, comma, saved_rtt);
+        ctx->previous_rtt = saved_rtt;
+
+        fprintf(f, "}");
+        /* CarefulResumeRestoredParameters end */
+
 
         if (trigger != ctx->trigger) {
             fprintf(f, "%s\"trigger\": %" PRIu64, comma, trigger);
