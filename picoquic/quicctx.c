@@ -4144,6 +4144,13 @@ uint64_t picoquic_current_time()
     * Account for microseconds elapsed between 1601 and 1970.
     */
     now -= 11644473600000000ULL;
+#elif defined(CLOCK_REALTIME)
+    /*
+     * DO NOT USE IN PRODUCTION ENVIRONMENT!
+     */
+    struct timespec currentTime;
+    (void)clock_gettime(CLOCK_REALTIME, &currentTime);
+    now = (currentTime.tv_sec * 1000000ull) + currentTime.tv_nsec / 1000ull;
 #elif defined(CLOCK_MONOTONIC)
     /*
     * Use CLOCK_MONOTONIC if exists (more accurate)
