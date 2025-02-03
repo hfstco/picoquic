@@ -406,14 +406,19 @@ uint8_t* h3zero_parse_qpack_header_value_string(uint8_t * bytes, uint8_t* decode
 uint8_t * h3zero_parse_qpack_header_value(uint8_t * bytes, uint8_t * bytes_max,
     http_header_enum_t header, h3zero_header_parts_t * parts)
 {
-    uint64_t v_length;
-    int is_huffman;
+    uint64_t v_length = 0;
+    int is_huffman = 0;
     uint8_t * decoded = NULL;
     size_t decoded_length;
     uint8_t deHuff[256];
 
-    is_huffman = (bytes[0] >> 7) & 1;
-    bytes = h3zero_qpack_int_decode(bytes, bytes_max, 0x7F, &v_length);
+    if (bytes >= bytes_max || bytes == NULL) {
+        bytes = NULL;
+    }
+    else {
+        is_huffman = (bytes[0] >> 7) & 1;
+        bytes = h3zero_qpack_int_decode(bytes, bytes_max, 0x7F, &v_length);
+    }
     if (bytes != NULL) {
         if (bytes + v_length > bytes_max) {
             bytes = NULL;
@@ -817,8 +822,8 @@ uint8_t * h3zero_encode_content_type(uint8_t * bytes, uint8_t * bytes_max, h3zer
 }
 
 uint8_t* h3zero_create_connect_header_frame(uint8_t* bytes, uint8_t* bytes_max,
-    uint8_t const* path, size_t path_length, char const* protocol, char const * origin,
-    char const* ua_string)
+    char const * authority, uint8_t const* path, size_t path_length, char const* protocol,
+    char const * origin, char const* ua_string)
 {
     if (bytes == NULL || bytes + 2 > bytes_max) {
         return NULL;
@@ -835,6 +840,10 @@ uint8_t* h3zero_create_connect_header_frame(uint8_t* bytes, uint8_t* bytes_max,
     /* Protocol. Use literal plus name format */
     if (protocol != NULL) {
         bytes = h3zero_qpack_literal_plus_name_encode(bytes, bytes_max, (uint8_t*)":protocol", 9, (uint8_t*)protocol, strlen(protocol));
+    }
+    /* Authority. Use literal plus reference format */
+    if (authority != NULL) {
+        bytes = h3zero_qpack_literal_plus_ref_encode(bytes, bytes_max, H3ZERO_QPACK_AUTHORITY, (uint8_t const*)authority, strlen(authority));
     }
     /* Origin. Use literal plus ref format */
     if (origin != NULL) {

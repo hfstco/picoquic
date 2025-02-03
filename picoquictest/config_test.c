@@ -22,15 +22,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "picoquic.h"
 #include "picoquic_internal.h"
 #include "picoquic_utils.h"
 #include "picoquic_config.h"
 #include "picoquictest_internal.h"
 
 #ifdef PICOQUIC_WITHOUT_SSLKEYLOG
-static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:Me:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:h";
+static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:Me:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:J:h";
 #else
-static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:Me:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:8h";
+static char* ref_option_text = "c:k:p:v:o:w:x:rR:s:XS:G:P:O:Me:C:i:l:Lb:q:m:n:a:t:zI:d:DQT:N:B:F:VU:0j:W:8J:h";
 #endif
 int config_option_letters_test()
 {
@@ -63,7 +64,7 @@ static picoquic_quic_config_t param1 = {
     1, /* int dest_if; */
     1536, /* int mtu_max; */
     -1, /* int cnx_id_length; */
-    0, /* int idle_timeout */
+    PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000, /* int idle_timeout */
     655360, /* Socket buffer size */
     "cubic", /* const picoquic_congestion_algorithm_t* cc_algorithm; */
     "0N8C-000123", /* char const* cnx_id_cbdata; */
@@ -73,6 +74,7 @@ static picoquic_quic_config_t param1 = {
     "127.0.0.1",
     1,
     UINT64_MAX, /* Do not limit CWIN */
+    3, /* Address discovery mode = 3 (cli param -J 2)*/
     /* Common flags */
     1, /* unsigned int initial_random : 1; */
     1, /* unsigned int use_long_log : 1; */
@@ -132,6 +134,7 @@ static char const* config_argv1[] = {
     "-j", "1",
     "-0",
     "-i", "0N8C-000123",
+    "-J", "2",
     NULL
 };
 
@@ -158,6 +161,7 @@ static picoquic_quic_config_t param2 = {
     "127.0.0.1",
     0,
     1000000, /* Limit CWIN to 1 million bytes */
+    0, /* Do not enable address discovery */
     /* Common flags */
     3, /* unsigned int initial_random : 1; */
     0, /* unsigned int use_long_log : 1; */
@@ -210,6 +214,29 @@ static const char* config_argv2[] = {
     "-N", "/data/tokens.bin",
     "-U", "00000002",
     "-W", "1000000",
+    NULL
+};
+
+static const char * config_two[] = {
+    "--sni", "test.example.com",
+    "--alpn", "test",
+    "--outdir", "/data/w_out",
+    "--root_trust_file", "data/certs/root.pem",
+    "--cipher_suite", "20",
+    "--proposed_version", "ff000020",
+    "--force_zero_share",
+    "--idle_timeout", "1234567",
+    "--no_disk",
+    "--large_client_hello",
+    "--disable_block",
+#ifndef PICOQUIC_WITHOUT_SSLKEYLOG
+    "--sslkeylog",
+#endif
+    "--cnxid_length", "5",
+    "--ticket_file", "/data/tickets.bin",
+    "--token_file", "/data/tokens.bin",
+    "--version_upgrade", "00000002",
+    "--cwin_max", "1000000",
     NULL
 };
 
@@ -430,6 +457,56 @@ static int config_parse_command_line_test(const picoquic_quic_config_t* expected
     return (ret);
 }
 
+int config_test_parse_command_line_ex(const picoquic_quic_config_t* expected, const char** argv, int argc)
+{
+    int ret = 0;
+    int opt_ind = 0;
+    picoquic_quic_config_t actual;
+
+    picoquic_config_init(&actual);
+
+    while (opt_ind < argc && ret == 0) {
+        const char* x = argv[opt_ind];
+        const char* optval = NULL;
+
+        if (x == NULL) {
+            /* could not parse to the end! */
+            DBG_PRINTF("Unexpected stop after %d arguments, expected %d", opt_ind, argc);
+            ret = -1;
+            break;
+        }
+        else if (x[0] != '-' || x[1] == 0 || 
+            (x[2] != 0 && x[1] != '-')) {
+            /* could not parse to the end! */
+            DBG_PRINTF("Unexpected argument: %s", x);
+            ret = -1;
+            break;
+        }
+        opt_ind++;
+        if (opt_ind < argc) {
+            optval = argv[opt_ind];
+            if (optval[0] == '-') {
+                optval = NULL;
+            }
+            else {
+                opt_ind++;
+            }
+        }
+        ret = picoquic_config_command_line_ex(x, &opt_ind, argc, argv, optval, &actual);
+        if (ret != 0) {
+            DBG_PRINTF("Could not parse opt %s", x);
+        }
+    }
+
+    if (ret == 0) {
+        ret = config_test_compare(expected, &actual);
+    }
+
+    picoquic_config_clear(&actual);
+  
+    return (ret);
+}
+
 int config_set_option_test_one()
 {
     int ret = 0;
@@ -462,18 +539,18 @@ int config_option_test()
     if (ret != 0) {
         DBG_PRINTF("First config option test returns %d", ret);
     }
-    
-    if (ret == 0){
+    if (ret == 0) {
         ret = config_parse_command_line_test(&param2, config_argv2, (int)(sizeof(config_argv2) / sizeof(char const*)) - 1);
+
         if (ret != 0) {
             DBG_PRINTF("Second config option test returns %d", ret);
         }
     }
 
     if (ret == 0) {
-        ret = config_set_option_test_one();
+        ret = config_test_parse_command_line_ex(&param2, config_two, (int)(sizeof(config_two) / sizeof(char const*)) - 1);
         if (ret != 0) {
-            DBG_PRINTF("Config set option test returns %d", ret);
+            DBG_PRINTF("Two dash config option test returns %d", ret);
         }
     }
 
