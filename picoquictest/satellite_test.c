@@ -303,6 +303,7 @@ int satellite_dcubic_seeded_test()
 int satellite_prague_seeded_test()
 {
     /* TODO check max_completion_time */
+    /* TODO HyStart++ changes: Scenario completes in 5658657 microsec, more than 5300000, 2 losses, 1 spurious */
     return satellite_test_one(picoquic_prague_algorithm, 100000000, 5300000, 250, 3, 0, 0, 0, 1, 0, 0);
 }
 

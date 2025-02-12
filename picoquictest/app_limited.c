@@ -582,6 +582,10 @@ int app_limited_reno_test()
 
 int app_limited_cubic_test()
 {
+    /* TODO HyStart++ changes:
+     * - Max CWIN 107565 instead of 100000
+     * - Nb retransmission 66 instead of 64
+     */
     app_limited_test_config_t config;
     app_limited_config_set_default(&config, 2);
     config.ccalgo = picoquic_cubic_algorithm;

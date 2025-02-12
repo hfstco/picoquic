@@ -262,6 +262,7 @@ void picoquic_update_pacing_rate(picoquic_cnx_t* cnx, picoquic_path_t* path_x, d
     picoquic_update_pacing_parameters(&path_x->pacing, pacing_rate,
         quantum, path_x->send_mtu, path_x->smoothed_rtt, path_x);
 }
+
 /* Reset pacing if expressed as CWIN and RTT */
 void picoquic_update_pacing_data(picoquic_cnx_t* cnx, picoquic_path_t* path_x, int slow_start)
 {

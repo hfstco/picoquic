@@ -200,5 +200,6 @@ int ackfrq_short_test()
     spec.min_ack_delay_remote = 1000;
     spec.target_interval = 1000;
 
+    /* TODO HyStart++ changes: interval = 1796, target_interval not in between interval_min = 1347 and interval_max = 2245. */
     return ackfrq_test_one(&spec);
 }
