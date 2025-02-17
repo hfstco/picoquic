@@ -312,7 +312,7 @@ void picoquic_prague_notify(
             case picoquic_prague_alg_slow_start:
                 /* TODO l4s_prague test fails. Have to increase max_completion time about 100 ms */
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                    path_x->cwin += picoquic_cc_slow_start_increase_ex2(path_x, ack_state->nb_bytes_acknowledged, (pr_state->hystart_pp_state.css_baseline_min_rtt == UINT64_MAX) ? 0 : 1, pr_state->alpha);
+                    path_x->cwin += picoquic_cc_slow_start_increase_ex2(path_x, ack_state->nb_bytes_acknowledged, IS_IN_CSS(pr_state->hystart_pp_state), pr_state->alpha);
 
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= pr_state->ssthresh) {
@@ -372,7 +372,7 @@ void picoquic_prague_notify(
                 }
 
                 /* HyStart++. */
-                /* Using RTT increases as signal to get out of initial slow start */
+                /* Using RTT increases as signal to get out of initial slow start. */
 
                 /* Keep track of the minimum RTT seen so far. */
                 picoquic_hystart_pp_keep_track(&pr_state->hystart_pp_state, ack_state->rtt_measurement);
@@ -384,9 +384,9 @@ void picoquic_prague_notify(
                 /* HyStart++ measures rounds using sequence numbers, as follows:
                  * - When windowEnd is ACKed, the current round ends and windowEnd is set to SND.NXT.
                  */
-                if (picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= pr_state->hystart_pp_state.current_round.window_end) {
+                if (picoquic_cc_ge_Ä t_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= pr_state->hystart_pp_state.current_round.window_end) {
                     /* Round has ended. */
-                    if (pr_state->hystart_pp_state.css_baseline_min_rtt != UINT64_MAX) {
+                    if (IS_IN_CSS(pr_state->hystart_pp_state)) {
                         /* In CSS increase CSS round counter. */
                         pr_state->hystart_pp_state.css_round_count++;
 
@@ -395,7 +395,6 @@ void picoquic_prague_notify(
                             pr_state->ssthresh = path_x->cwin;
                             pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
                             path_x->is_ssthresh_initialized = 1;
-                            fprintf(stdout, "HyStart++ triggered.\n");
                         }
                     }
 
