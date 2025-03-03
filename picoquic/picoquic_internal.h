@@ -161,7 +161,8 @@ typedef enum {
     picoquic_frame_type_path_available =  0x15228c08,
     picoquic_frame_type_bdp = 0xebd9,
     picoquic_frame_type_max_path_id = 0x15228c0c,
-    picoquic_frame_type_path_blocked = 0x15228c0d,
+    picoquic_frame_type_paths_blocked = 0x15228c0d,
+    picoquic_frame_type_path_cid_blocked = 0x15228c0e,
     picoquic_frame_type_observed_address_v4 = 0x9f81a6,
     picoquic_frame_type_observed_address_v6 = 0x9f81a7
 } picoquic_frame_type_enum_t;
@@ -587,7 +588,7 @@ typedef uint64_t picoquic_tp_enum;
 #define picoquic_tp_grease_quic_bit 0x2ab2
 #define picoquic_tp_version_negotiation 0x11
 #define picoquic_tp_enable_bdp_frame 0xebd9 /* per draft-kuhn-quic-0rtt-bdp-09 */
-#define picoquic_tp_initial_max_path_id  0x0f739bbc1b666d11ull /* per draft quic multipath 11 */
+#define picoquic_tp_initial_max_path_id  0x0f739bbc1b666d0cull /* per draft quic multipath 12 */ 
 #define picoquic_tp_address_discovery 0x9f81a176 /* per draft-seemann-quic-address-discovery */
 
 /* Callback for converting binary log to quic log at the end of a connection. 
@@ -612,7 +613,7 @@ typedef struct st_picoquic_quic_t {
     uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE];
     uint8_t retry_seed[PICOQUIC_RETRY_SECRET_SIZE];
     uint64_t* p_simulated_time;
-    uint8_t hash_seed[8];
+    uint8_t hash_seed[16];
     char const* ticket_file_name;
     char const* token_file_name;
     picoquic_stored_ticket_t * p_first_ticket;
@@ -1118,6 +1119,7 @@ typedef struct st_picoquic_path_t {
     unsigned int is_lost_feedback_notified : 1; /* Lost feedback has been notified */
     unsigned int is_cca_probing_up : 1; /* congestion control algorithm is seeking more bandwidth */
     unsigned int rtt_is_initialized : 1; /* RTT was measured at least once. */
+    unsigned int sending_path_cid_blocked_frame : 1; /* Sending a path CID blocked, not acked yet. */
     
     /* Management of retransmissions in a path.
      * The "path_packet" variables are used for the RACK algorithm, per path, to avoid
@@ -1311,6 +1313,8 @@ typedef struct st_picoquic_cnx_t {
     unsigned int is_forced_probe_up_required : 1; /* application wants "probe up" if CC requests it */
     unsigned int is_address_discovery_provider : 1; /* send the address discovery extension */
     unsigned int is_address_discovery_receiver : 1; /* receive the address discovery extension */
+    unsigned int is_subscribed_to_path_allowed : 1; /* application wants to be advised if it is now possible to create a path */
+    unsigned int is_notified_that_path_is_allowed : 1; /* application wants to be advised if it is now possible to create a path */
     
     /* PMTUD policy */
     picoquic_pmtud_policy_enum pmtud_policy;
@@ -1501,7 +1505,7 @@ typedef struct st_picoquic_cnx_t {
     uint64_t max_path_id_local;
     uint64_t max_path_id_acknowledged;
     uint64_t max_path_id_remote;
-    uint64_t path_blocked_acknowledged;
+    uint64_t paths_blocked_acknowledged;
     /* Management of the CNX-ID stash */
     picoquic_remote_cnxid_stash_t * first_remote_cnxid_stash;
     /* management of local CID stash.
@@ -2041,6 +2045,8 @@ const uint8_t* picoquic_skip_path_abandon_frame(const uint8_t* bytes, const uint
 const uint8_t* picoquic_skip_path_available_or_standby_frame(const uint8_t* bytes, const uint8_t* bytes_max);
 int picoquic_queue_path_available_or_standby_frame(
     picoquic_cnx_t* cnx, picoquic_path_t* path_x, picoquic_path_status_enum status);
+/* Internal only API, notify that next path is now allowed. */
+void picoquic_test_and_signal_new_path_allowed(picoquic_cnx_t* cnx);
 
 int picoquic_decode_closing_frames(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max, int* closing_received);
 
