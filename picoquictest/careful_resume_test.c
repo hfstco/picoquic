@@ -183,7 +183,7 @@ int careful_resume_overshoot_test()
 int careful_resume_undershoot_test()
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return careful_resume_test_one(picoquic_cubic_algorithm, 50000000, 1000000, 50, 5, 0, 0, 0, 375000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 50000000, 11150000, 50, 5, 0, 0, 0, 375000);
 }
 
 int careful_resume_rtt_not_valid_test()

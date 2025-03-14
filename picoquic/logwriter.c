@@ -1289,11 +1289,6 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
                 cr_state = &cubic_state->cr_state;
                 }
                 break;
-            /*case PICOQUIC_CC_ALGO_NUMBER_NEW_RENO: {
-                picoquic_newreno_state_t* nr_state = path->congestion_alg_state;
-                cr_state = &nr_state->nrss.cr_state;
-                }
-                break;*/
             default:
                 return;
         }
@@ -1333,7 +1328,7 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
              * }
              */
             /* ? restored_data: CarefulResumeRestoredParameters */
-            bytewrite_vint(ps_msg, cr_state->saved_cwnd);
+            bytewrite_vint(ps_msg, cr_state->saved_congestion_window);
             bytewrite_vint(ps_msg, cr_state->saved_rtt);
 
             /* ? trigger

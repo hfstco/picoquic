@@ -1554,32 +1554,31 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
 
         qlog_event_header(f, ctx, delta_time, path_id, "recovery", "careful_resume_phase_updated");
 
-        if (old_phase != ctx->old) {
-            switch (old_phase) {
-                case 0:
-                    fprintf(f, "%s\"old_phase\": \"observe\"", comma);
-                break;
-                case 1:
-                    fprintf(f, "%s\"old_phase\": \"reconnaissance\"", comma);
-                break;
-                case 2:
-                    fprintf(f, "%s\"old_phase\": \"unvalidated\"", comma);
-                break;
-                case 3:
-                    fprintf(f, "%s\"old_phase\": \"validating\"", comma);
-                break;
-                case 4:
-                    fprintf(f, "%s\"old_phase\": \"safe_retreat\"", comma);
-                break;
-                case 100:
-                    fprintf(f, "%s\"old_phase\": \"normal\"", comma);
-                break;
-                default:
-                    fprintf(f, "%s\"old_phase\": \"NULL\"", comma);
-                break;
+        if (old_phase != new_phase) {
+            if (old_phase != ctx->old) {
+                switch (old_phase) {
+                    case 0:
+                        fprintf(f, "%s\"old_phase\": \"normal\"", comma);
+                    break;
+                    case 1:
+                        fprintf(f, "%s\"old_phase\": \"reconnaissance\"", comma);
+                    break;
+                    case 2:
+                        fprintf(f, "%s\"old_phase\": \"unvalidated\"", comma);
+                    break;
+                    case 3:
+                        fprintf(f, "%s\"old_phase\": \"validating\"", comma);
+                    break;
+                    case 4:
+                        fprintf(f, "%s\"old_phase\": \"safe_retreat\"", comma);
+                    break;
+                    default:
+                        fprintf(f, "%s\"old_phase\": \"UNDEFINED\"", comma);
+                    break;
+                }
+                ctx->old = old_phase;
+                comma = ", ";
             }
-            ctx->old = old_phase;
-            comma = ", ";
         }
 
         /* if (new != ctx->new) {
@@ -1589,7 +1588,7 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
         }*/
         switch (new_phase) {
             case 0:
-                fprintf(f, "%s\"new_phase\": \"observe\"", comma);
+                fprintf(f, "%s\"new_phase\": \"normal\"", comma);
             break;
             case 1:
                 fprintf(f, "%s\"new_phase\": \"reconnaissance\"", comma);
@@ -1603,11 +1602,8 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             case 4:
                 fprintf(f, "%s\"new_phase\": \"safe_retreat\"", comma);
             break;
-            case 100:
-                fprintf(f, "%s\"new_phase\": \"normal\"", comma);
-            break;
             default:
-                fprintf(f, "%s\"new_phase\": \"NULL\"", comma);
+                fprintf(f, "%s\"new_phase\": \"UNDEFINED\"", comma);
             break;
         }
         ctx->new = new_phase;

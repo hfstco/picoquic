@@ -473,7 +473,6 @@ int picoquic_remember_issued_ticket(picoquic_quic_t* quic,
     const uint8_t* ip_addr,
     uint8_t ip_addr_length)
 {
-    fprintf(stdout, "ticket seeded.\ncwin=%" PRIu64 ", rtt=%" PRIu64 "\n", cwin, rtt);
     int ret = 0;
 
     picoquic_issued_ticket_t* ticket = picoquic_retrieve_issued_ticket(quic,

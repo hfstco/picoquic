@@ -1984,11 +1984,6 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
                 cr_state = &cubic_state->cr_state;
             }
             break;
-        /*case PICOQUIC_CC_ALGO_NUMBER_NEW_RENO: {
-                picoquic_newreno_state_t* nr_state = path_x->congestion_alg_state;
-                cr_state = &nr_state->nrss.cr_state;
-            }
-            break;*/
         default:
             cr_state = NULL;
             break;
@@ -2005,33 +2000,35 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
          *      "safe_retreat"
          */
         /* ? old: CarefulResumePhase */
-        switch (cr_state->previous_alg_state) {
-            case picoquic_cr_alg_recon:
-                fprintf(F, "old: %s,", "reconnaissance");
+        if (cr_state->previous_alg_state != cr_state->alg_state) {
+            switch (cr_state->previous_alg_state) {
+                case picoquic_cr_alg_reconnaissance:
+                    fprintf(F, "old: %s,", "reconnaissance");
                 break;
-            case picoquic_cr_alg_unval:
-                fprintf(F, "old: %s,", "unvalidated");
+                case picoquic_cr_alg_unvalidated:
+                    fprintf(F, "old: %s,", "unvalidated");
                 break;
-            case picoquic_cr_alg_validating:
-                fprintf(F, "old: %s,", "validating");
+                case picoquic_cr_alg_validating:
+                    fprintf(F, "old: %s,", "validating");
                 break;
-            case picoquic_cr_alg_normal:
-                fprintf(F, "old: %s,", "normal");
+                case picoquic_cr_alg_normal:
+                    fprintf(F, "old: %s,", "normal");
                 break;
-            case picoquic_cr_alg_retreat:
-                fprintf(F, "old: %s,", "retreat");
+                case picoquic_cr_alg_safe_retreat:
+                    fprintf(F, "old: %s,", "safe_retreat");
                 break;
-            default:
-                /* ignore */
-                break;
+                default:
+                    /* ignore */
+                        break;
+            }
         }
 
         /* new: CarefulResumePhase */
         switch (cr_state->alg_state) {
-            case picoquic_cr_alg_recon:
+            case picoquic_cr_alg_reconnaissance:
                 fprintf(F, "new: %s,", "reconnaissance");
                 break;
-            case picoquic_cr_alg_unval:
+            case picoquic_cr_alg_unvalidated:
                 fprintf(F, "new: %s,", "unvalidated");
                 break;
             case picoquic_cr_alg_validating:
@@ -2040,8 +2037,8 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
             case picoquic_cr_alg_normal:
                 fprintf(F, "new: %s,", "normal");
                 break;
-            case picoquic_cr_alg_retreat:
-                fprintf(F, "new: %s,", "retreat");
+            case picoquic_cr_alg_safe_retreat:
+                fprintf(F, "new: %s,", "safe_retreat");
                 break;
             default:
                 /* ignore */
@@ -2049,26 +2046,28 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         }
 
         /* CarefulResumeStateParameters = {
-         *      pipesize: uint,
-         *      cr_mark: uint,
+         *      pipesize: uint32,
+         *      first_unvalidated_byte: uint32,
+         *      last_unvalidated_byte: uint32,
          *      ? congestion_window: uint,
          *      ? ssthresh: uint
          * }
          */
         /* state_data: CarefulResumeStateParameters */
         fprintf(F, "pipesize: %d,", (int)cr_state->pipesize);
-        fprintf(F, "cr_mark: %d,", (int)cr_state->cr_mark);
+        fprintf(F, "first_unvalidated_byte: %d,", (int)cr_state->first_unvalidated_byte);
+        fprintf(F, "last_unvalidated_byte: %d,", (int)cr_state->last_unvalidated_byte);
         fprintf(F, "congestion_window: %d,", (int)path_x->cwin);
         fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
 
         /* CarefulResumeRestoredParameters = {
-         *      previous_congestion_window: uint,
-         *      previous_rtt: float32
+         *      saved_congestion_window: uint32,
+         *      saved_rtt: float32
          * }
          */
         /* ? restored_data: CarefulResumeRestoredParameters */
-        fprintf(F, "previous_congestion_window: %d,", (int)cr_state->saved_cwnd);
-        fprintf(F, "previous_rtt: %d,", (int)cr_state->saved_rtt);
+        fprintf(F, "saved_congestion_window: %d,", (int)cr_state->saved_congestion_window);
+        fprintf(F, "saved_rtt: %d,", (int)cr_state->saved_rtt);
 
         /* ? trigger
          *      ; for the Safe Retreat phase
@@ -2084,17 +2083,26 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
          *      ; for the Normal phase 1 RTT after a congestion event
          *      "exit_recovery" */
         switch (cr_state->trigger) {
-            case picoquic_cr_trigger_packet_loss:
-                fprintf(F, "tigger: %s\n", "packet_loss");
-                break;
-            case picoquic_cr_trigger_congestion_window_limited:
+            case picoquic_cr_trigger_cwnd_limited:
                 fprintf(F, "tigger: %s\n", "congestion_window_limited");
-                break;
-            case picoquic_cr_trigger_cr_mark_acknowledged:
-                fprintf(F, "tigger: %s\n", "cr_mark_acknowledged");
                 break;
             case picoquic_cr_trigger_rtt_not_validated:
                 fprintf(F, "tigger: %s\n", "rtt_not_validated");
+                break;
+            case picoquic_cr_trigger_first_unvalidated_packet_acknowledged:
+                fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_first_unvalidated_packet_acknowledged");
+                break;
+            case picoquic_cr_trigger_rtt_exceeded:
+                fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_rtt_exceeded");
+                break;
+            case picoquic_cr_trigger_rate_limited:
+                fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_rate_limited");
+                break;
+            case picoquic_cr_trigger_last_unvalidated_packet_acknowledged:
+                fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_last_unvalidated_packet_acknowledged");
+                break;
+            case picoquic_cr_trigger_packet_loss:
+                fprintf(F, "tigger: %s\n", "packet_loss");
                 break;
             case picoquic_cr_trigger_ECN_CE:
                 fprintf(F, "tigger: %s\n", "ECN_CE");
