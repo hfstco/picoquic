@@ -1652,11 +1652,41 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
         /* CarefulResumeRestoredParameters end */
 
 
-        if (trigger != ctx->trigger) {
-            fprintf(f, "%s\"trigger\": %" PRIu64, comma, trigger);
-            ctx->trigger = trigger;
-            /* comma = ","; (not useful since last block of function) */
+        switch (trigger) {
+            case 0:
+                fprintf(f, "%s\"trigger\": \"cwnd_limited\"", comma);
+            break;
+            case 1:
+                fprintf(f, "%s\"trigger\": \"rtt_not_validated\"", comma);
+            break;
+            case 2:
+                fprintf(f, "%s\"trigger\": \"first_unvalidated_packet_acknowledged\"", comma);
+            break;
+            case 3:
+                fprintf(f, "%s\"trigger\": \"rtt_exceeded\"", comma);
+            break;
+            case 4:
+                fprintf(f, "%s\"trigger\": \"rate_limited\"", comma);
+            break;
+            case 5:
+                fprintf(f, "%s\"trigger\": \"last_unvalidated_packet_acknowledged\"", comma);
+            break;
+            case 6:
+                fprintf(f, "%s\"trigger\": \"packet_loss\"", comma);
+            break;
+            case 7:
+                fprintf(f, "%s\"trigger\": \"ECN_CE\"", comma);
+            break;
+            case 8:
+                fprintf(f, "%s\"trigger\": \"exit_recovery\"", comma);
+            break;
+            default:
+                fprintf(f, "%s\"trigger\": \"UNDEFINED\"", comma);
+            break;
         }
+        ctx->trigger = trigger;
+        comma = ", ";
+        /* comma = ","; (not useful since last block of function) */
 
         fprintf(f, "}]");
         ctx->event_count++;

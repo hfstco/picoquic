@@ -2070,6 +2070,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         fprintf(F, "saved_rtt: %d,", (int)cr_state->saved_rtt);
 
         /* ? trigger
+         * TODO update
          *      ; for the Safe Retreat phase
          *      "packet_loss" /
          *      ; for the Unvalidated phase
