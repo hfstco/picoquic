@@ -242,6 +242,8 @@ void picoquic_cubic_notify(
 
                 /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                 if (path_x->cwin >= cubic_state->ssthresh) {
+                    cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
+                    cubic_state->W_last_max = cubic_state->W_max;
                     cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
                     path_x->is_ssthresh_initialized = 1;
                     picoquic_cubic_enter_avoidance(cubic_state, current_time);

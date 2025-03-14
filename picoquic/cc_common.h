@@ -69,7 +69,8 @@ void picoquic_hystart_increase(picoquic_path_t* path_x, picoquic_min_max_rtt_t* 
 #define PICOQUIC_CR_BETA 1.0
 
 typedef enum {
-    picoquic_cr_trigger_cwnd_limited = 0,
+    picoquic_cr_trigger_undefined = 0,
+    picoquic_cr_trigger_cwnd_limited,
     picoquic_cr_trigger_rtt_not_validated,
     picoquic_cr_trigger_first_unvalidated_packet_acknowledged,
     picoquic_cr_trigger_rtt_exceeded,
