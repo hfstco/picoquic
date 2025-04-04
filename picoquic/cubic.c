@@ -52,7 +52,7 @@ void picoquic_cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t
     path_x->congestion_alg_state = (void*)cubic_state;
     if (cubic_state != NULL) {
         picoquic_cubic_reset(cubic_state, path_x, current_time);
-        picoquic_cr_reset(&cubic_state->cr_state, path_x, current_time);
+        picoquic_cr_reset(&cubic_state->cr_state, cnx, path_x, current_time);
     }
 }
 
@@ -215,7 +215,6 @@ void picoquic_cubic_notify(
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                cubic_update_bandwidth(path_x);
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                     /* +------+---------+---------+------------+-----------+------------+
                      * |Phase |Normal   |Recon.   |Unvalidated |Validating |Safe Retreat|
@@ -229,6 +228,8 @@ void picoquic_cubic_notify(
                     if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
                         cubic_state->cr_state.alg_state == picoquic_cr_alg_validating ||
                         cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
+                        cubic_update_bandwidth(path_x);
+
                         picoquic_hystart_increase(path_x, &cubic_state->rtt_filter,
                                                   ack_state->nb_bytes_acknowledged);
                         }

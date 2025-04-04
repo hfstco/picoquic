@@ -2055,8 +2055,8 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
          */
         /* state_data: CarefulResumeStateParameters */
         fprintf(F, "pipesize: %d,", (int)cr_state->pipesize);
-        fprintf(F, "first_unvalidated_byte: %d,", (int)cr_state->first_unvalidated_byte);
-        fprintf(F, "last_unvalidated_byte: %d,", (int)cr_state->last_unvalidated_byte);
+        fprintf(F, "first_unvalidated_packet: %d,", (int)cr_state->first_unvalidated_packet);
+        fprintf(F, "last_unvalidated_packet: %d,", (int)cr_state->last_unvalidated_packet);
         fprintf(F, "congestion_window: %d,", (int)path_x->cwin);
         fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
 

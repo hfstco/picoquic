@@ -10,24 +10,21 @@
 #include "cc_common.h"
 
 /* Reset careful resume context. == Enter RECON phase. */
-void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time) {
+void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time) {
     fprintf(stdout, "picoquic_cr_reset(unique_path_id=%" PRIu64 ")\n", path_x->unique_path_id);
     memset(cr_state, 0, sizeof(picoquic_cr_state_t));
 
     cr_state->saved_congestion_window = UINT64_MAX;
     cr_state->saved_rtt = UINT64_MAX;
 
-    cr_state->cr_mark = 0;
-    cr_state->jump_cwnd = 0;
-
-    cr_state->first_unvalidated_byte = 0;
-    cr_state->last_unvalidated_byte = 0;
+    cr_state->first_unvalidated_packet = UINT64_MAX;
+    cr_state->last_unvalidated_packet = UINT64_MAX;
 
     cr_state->pipesize = 0;
 
     cr_state->ssthresh = UINT64_MAX;
 
-    picoquic_cr_enter_reconnaissance(cr_state, path_x, current_time);
+    picoquic_cr_enter_reconnaissance(cr_state, cnx, path_x, current_time);
 }
 
 /* Notify careful resume context. */
@@ -43,9 +40,6 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_acknowledgement:
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_unvalidated:
-                    /* Keep track of bytes ACKed or marked as lost. */
-                    cr_state->cr_mark += ack_state->nb_bytes_acknowledged;
-
                     /* UNVAL: PS+=ACked */
                     /* *Unvalidated Phase (Receiving acknowledgements for reconnaisance
                         packets): The variable PipeSize if increased by the amount of
@@ -69,13 +63,10 @@ void picoquic_cr_notify(
                      */
                     if ((current_time - cr_state->start_of_epoch) > path_x->rtt_min) {
                         cr_state->trigger = picoquic_cr_trigger_rtt_exceeded;
-                        picoquic_cr_enter_validating(cr_state, path_x, current_time);
+                        picoquic_cr_enter_validating(cr_state, cnx, path_x, current_time);
                     }
                     break;
                 case picoquic_cr_alg_validating:
-                    /* Keep track of bytes ACKed or marked as lost. */
-                    cr_state->cr_mark += ack_state->nb_bytes_acknowledged;
-
                     /* VALIDATING: PS+=ACked */
                     /* *Validating Phase (Receiving acknowledgements for unvalidated
                         packets): The variable PipeSize if increased upon each
@@ -88,15 +79,12 @@ void picoquic_cr_notify(
                         packets): The sender enters the Normal Phase when an
                         acknowledgement is received for the last packet number (or
                         higher) that was sent in the Unvalidated Phase. */
-                    if (cr_state->cr_mark >= cr_state->jump_cwnd) {
+                    if (picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
                         cr_state->trigger = picoquic_cr_trigger_last_unvalidated_packet_acknowledged;
-                        picoquic_cr_enter_normal(cr_state, path_x, current_time);
+                        picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
                     }
                     break;
                 case picoquic_cr_alg_safe_retreat:
-                    /* Keep track of bytes ACKed or marked as lost. */
-                    cr_state->cr_mark += ack_state->nb_bytes_acknowledged;
-
                     /* RETREAT: PS+=ACked */
                     /* *Safe Retreat Phase (Tracking PipeSize): The sender continues to
                         update the PipeSize after processing each ACK. This value is used
@@ -113,10 +101,10 @@ void picoquic_cr_notify(
                         (or higher) sent in the Unvalidated Phase is acknowledged. If the
                         last packet number is not cumulatively acknowledged, then additional
                         packets might need to be retransmitted. */
-                    if (cr_state->cr_mark >= cr_state->jump_cwnd) {
+                    if (picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
                         cr_state->ssthresh = cr_state->pipesize * PICOQUIC_CR_BETA;
                         cr_state->trigger = picoquic_cr_trigger_exit_recovery;
-                        picoquic_cr_enter_normal(cr_state, path_x, current_time);
+                        picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
                     }
                     break;
                 default:
@@ -135,23 +123,16 @@ void picoquic_cr_notify(
                         not use the Careful Resume method and MUST enter the Normal Phase
                         to respond to the detected congestion. */
                     /* TODO no trigger? */
-                    picoquic_cr_enter_normal(cr_state, path_x, current_time);
+                    picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
                     break;
                 case picoquic_cr_alg_unvalidated:
                 case picoquic_cr_alg_validating:
-                    /* Keep track of bytes ACKed or marked as lost. */
-                    cr_state->cr_mark += ack_state->nb_bytes_newly_lost;
-
                     /* UNVAL, VALIDATING: Enter Safe Retreat */
                     /* *Validating Phase (Congestion indication): If a sender determines
                         that congestion was experienced (e.g., packet loss or ECN-CE
                         marking), Careful Resume enters the Safe Retreat Phase. */
                     cr_state->trigger = (notification == picoquic_congestion_notification_ecn_ec) ? picoquic_cr_trigger_ECN_CE : picoquic_cr_trigger_packet_loss;
-                    picoquic_cr_enter_safe_retreat(cr_state, path_x, current_time);
-                    break;
-                case picoquic_cr_alg_safe_retreat:
-                    /* Keep track of bytes ACKed or marked as lost. */
-                    cr_state->cr_mark += ack_state->nb_bytes_newly_lost;
+                    picoquic_cr_enter_safe_retreat(cr_state, cnx, path_x, current_time);
                     break;
                 default:
                     break;
@@ -167,20 +148,20 @@ void picoquic_cr_notify(
                 case picoquic_cr_alg_reconnaissance:
                     if (cr_state->saved_congestion_window != UINT64_MAX) {
                         cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
-                        picoquic_cr_enter_unvalidated(cr_state, path_x, current_time);
+                        picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                     }
                     break;
                 case picoquic_cr_alg_unvalidated:
                     /* UNVAL: If( >1 RTT has passed or FS=CWND or first unvalidated packet is ACKed), enter Validating */
                     /* TODO no trigger? */
-                    picoquic_cr_enter_validating(cr_state, path_x, current_time);
+                    picoquic_cr_enter_validating(cr_state, cnx, path_x, current_time);
                     break;
                 default:
                     break;
             }
             break;
         case picoquic_congestion_notification_reset:
-            picoquic_cr_reset(cr_state, path_x, current_time);
+            picoquic_cr_reset(cr_state, cnx, path_x, current_time);
             break;
         case picoquic_congestion_notification_seed_cwin:
             switch (cr_state->alg_state) {
@@ -192,7 +173,7 @@ void picoquic_cr_notify(
                         /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
                         if (path_x->bytes_in_transit >= path_x->cwin) {
                             cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
-                            picoquic_cr_enter_unvalidated(cr_state, path_x, current_time);
+                            picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                         }
                     }
                     break;
@@ -206,7 +187,7 @@ void picoquic_cr_notify(
 }
 
 /* Enter RECON phase. */
-void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                  uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "%s", (current_time - path_x->cnx->start_time), "picoquic_resume_enter_recon()\n");
 
@@ -224,7 +205,7 @@ void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_pa
 }
 
 /* Enter UNVAL phase. */
-void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                              uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_unval(unique_path_id=%" PRIu64 ")\n", (current_time - path_x->cnx->start_time), path_x->unique_path_id);
 
@@ -234,11 +215,7 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_path_
     cr_state->previous_start_of_epoch = cr_state->start_of_epoch;
     cr_state->start_of_epoch = current_time;
 
-    /* Mark lower and upper bound of the jumpwindow/unvalidated packets in bytes. */
-    cr_state->jump_cwnd = cr_state->saved_congestion_window / 2;
-
-    cr_state->first_unvalidated_byte = path_x->bytes_sent;
-    cr_state->last_unvalidated_byte = path_x->bytes_sent + cr_state->jump_cwnd;
+    cr_state->first_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
 
     /* UNVAL: PS=CWND */
     /* *Unvalidated Phase (Initialising PipeSize): The variable PipeSize is initialised to the flight_size on entry to
@@ -252,14 +229,14 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_path_
         used capacity after the Observation Phase, the jump_cwnd MUST be
         no more than half of the saved_cwnd. Hence, jump_cwnd is less
         than or equal to the (saved_cwnd/2). CWND = jump_cwnd. */
-    path_x->cwin = cr_state->jump_cwnd;
+    path_x->cwin = cr_state->saved_congestion_window / 2;
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
 }
 
 /* Enter VALIDATING phase. */
-void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                 uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);
@@ -282,15 +259,17 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_path_t
     } else {
         path_x->cwin = cr_state->pipesize;
         cr_state->trigger = picoquic_cr_trigger_rate_limited;
-        picoquic_cr_enter_normal(cr_state, path_x, current_time);
+        picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
     }
+
+    cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
 }
 
 /* Enter RETREAT phase. */
-void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_retreat(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);
@@ -322,8 +301,6 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_path
     /* *Safe Retreat Phase (Removing saved information): The set of saved
         CC parameters for the path are deleted, to prevent these from
         being used again by other flows. */
-    path_x->cnx->seed_cwin = 0;
-    path_x->cnx->seed_rtt_min = 0;
     /* TODO is_seeded, ip_addr, ticket, ... ? */
 
     /* Notify qlog. */
@@ -331,7 +308,7 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_path
 }
 
 /* Enter NORMAL phase. */
-void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x,
+void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                               uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_normal(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);

@@ -1317,8 +1317,8 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
             /* state_data: CarefulResumeStateParameters */
             bytewrite_vint(ps_msg, cr_state->pipesize);
             //bytewrite_vint(ps_msg, cr_state->cr_mark);
-            bytewrite_vint(ps_msg, cr_state->first_unvalidated_byte);
-            bytewrite_vint(ps_msg, cr_state->last_unvalidated_byte);
+            bytewrite_vint(ps_msg, cr_state->first_unvalidated_packet);
+            bytewrite_vint(ps_msg, cr_state->last_unvalidated_packet);
             bytewrite_vint(ps_msg, path->cwin);
             bytewrite_vint(ps_msg, cr_state->ssthresh);
 
