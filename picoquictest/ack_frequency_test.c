@@ -29,6 +29,12 @@
 #include "logreader.h"
 #include "qlog.h"
 
+#include "picoquic_newreno.h"
+#include "picoquic_cubic.h"
+#include "picoquic_bbr.h"
+#include "picoquic_bbr1.h"
+#include "picoquic_fastcc.h"
+
 /* Verify that the ack frequency is correctly set.
  */
 
@@ -198,7 +204,7 @@ int ackfrq_short_test()
     spec.max_ack_delay_remote = 1000;
     spec.max_ack_gap_remote = 32;
     spec.min_ack_delay_remote = 1000;
-    spec.target_interval = 1500;
+    spec.target_interval = 1000;
 
     return ackfrq_test_one(&spec);
 }

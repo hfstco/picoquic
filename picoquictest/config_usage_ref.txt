@@ -11,7 +11,9 @@ Picoquic options:
   -s <32 hex chars> Reset seed
   -X              Disable the check for blocked ports
   -S folder       Set the path to the source files to find the default files
-  -G cc_algorithm Use the specified congestion control algorithm: reno, cubic, bbr or fast. Defaults to bbr.
+  -G cc_algorithm Use the specified congestion control algorithm. Defaults to bbr. Supported values are:
+                  newreno, cubic, bbr.
+  -H option       Set option string if required by congestion control algorithm.
   -P number       Set the default spinbit policy
   -O number       Set the default lossbit policy
   -M              Enable QUIC multipath extension
@@ -28,7 +30,7 @@ Picoquic options:
   -t file         root trust file
   -z              Set TLS zero share behavior on client, to force HRR
   -I length       Length of CNX_ID used by the client, default=8
-  -d ms           Duration of idle timeout in milliseconds
+  -d ms           Duration of idle timeout in milliseconds (Default 30,000ms)
   -D              no disk: do not save received files on disk
   -Q              send a large client hello in order to test post quantum readiness
   -T file         File storing the session tickets

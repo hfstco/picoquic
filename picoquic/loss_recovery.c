@@ -456,7 +456,8 @@ static size_t picoquic_retransmit_needed_packet(picoquic_cnx_t* cnx, picoquic_pa
                         cnx->cnx_state >= picoquic_state_ready) {
                         /* Max retransmission reached for this path */
                         DBG_PRINTF("%s\n", "Too many data retransmits, abandon path");
-                        picoquic_log_app_message(cnx, "%s", "Too many data retransmits, abandon path");
+                        picoquic_log_app_message(cnx, "%s", "Too many data retransmits (%"PRIu64"), abandon path %" PRIu64,
+                            old_path->nb_retransmit, old_path->unique_path_id);
 
                         if (cnx->is_multipath_enabled) {
                             int all_paths_dubious = 1;
@@ -467,12 +468,12 @@ static size_t picoquic_retransmit_needed_packet(picoquic_cnx_t* cnx, picoquic_pa
                                 }
                             }
                             if (!all_paths_dubious) {
-                                old_path->challenge_failed = 1;
+                                old_path->first_tuple->challenge_failed = 1;
                                 cnx->path_demotion_needed = 1;
                             }
                         }
                         else {
-                            old_path->challenge_failed = 1;
+                            old_path->first_tuple->challenge_failed = 1;
                             cnx->path_demotion_needed = 1;
                         }
                     }
@@ -494,7 +495,8 @@ static size_t picoquic_retransmit_needed_packet(picoquic_cnx_t* cnx, picoquic_pa
                         /*
                         * Max retransmission count was exceeded. Log.
                         */
-                        DBG_PRINTF("Too many retransmits of packet number %d, disconnect", (int)old_p->sequence_number);
+                        DBG_PRINTF("Too many retransmits of packet number %"PRIu64", disconnect", old_p->sequence_number);
+                        picoquic_log_app_message(cnx, "Too many retransmits of packet number %"PRIu64", disconnect", old_p->sequence_number);
 
                         *continue_next = 0;
                     }
@@ -897,7 +899,7 @@ static void picoquic_count_and_notify_loss(
     if (timer_based_retransmit < 2) {
         picoquic_log_packet_lost(cnx, old_p->send_path, old_p->ptype, old_p->sequence_number,
             (timer_based_retransmit) ? "timer" : "repeat",
-            (old_p->send_path == NULL || old_p->send_path->p_remote_cnxid == NULL) ? NULL : &old_p->send_path->p_remote_cnxid->cnx_id,
+            (old_p->send_path == NULL || old_p->send_path->first_tuple->p_remote_cnxid == NULL) ? NULL : &old_p->send_path->first_tuple->p_remote_cnxid->cnx_id,
             old_p->length, current_time);
 
         if (!old_p->is_preemptive_repeat) {

@@ -446,7 +446,7 @@ static const uint8_t* picoquic_log_path_available_or_backup_frame(FILE* f, const
 {
     const uint8_t* bytes_begin = bytes;
     bytes = picoquic_log_varint_skip(bytes, bytes_max); /* frame type as varint */
-    bytes = picoquic_skip_path_available_or_standby_frame(bytes, bytes_max); /* skip available or standby frame */
+    bytes = picoquic_skip_path_available_or_backup_frame(bytes, bytes_max); /* skip available or backup frame */
     picoquic_binlog_frame(f, bytes_begin, bytes);
 
     return bytes;
@@ -845,7 +845,7 @@ void binlog_outgoing_packet(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
 
     picoquic_parse_packet_header((cnx == NULL) ? NULL : cnx->quic, send_buffer, send_length,
         ((cnx == NULL || cnx->path[0] == NULL) ? (struct sockaddr *)&default_addr :
-        (struct sockaddr *)&cnx->path[0]->local_addr), &ph, &pcnx, 0);
+        (struct sockaddr *)&cnx->path[0]->first_tuple->local_addr), &ph, &pcnx, 0);
 
     if (cnx != NULL) {
         picoquic_epoch_enum epoch = (ph.ptype == picoquic_packet_1rtt_protected) ? picoquic_epoch_1rtt :
@@ -1062,7 +1062,7 @@ void binlog_new_connection(picoquic_cnx_t * cnx)
 
         bytewrite_int8(msg, cnx->client_mode != 0);
         bytewrite_int32(msg, cnx->proposed_version);
-        bytewrite_cid(msg, &cnx->path[0]->p_remote_cnxid->cnx_id);
+        bytewrite_cid(msg, &cnx->path[0]->first_tuple->p_remote_cnxid->cnx_id);
 
         /* Algorithms used */
         bytewrite_cstr(msg, cnx->congestion_alg->congestion_algorithm_id);

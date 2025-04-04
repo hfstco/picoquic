@@ -30,6 +30,10 @@
 #include "picoquic_binlog.h"
 #include "logreader.h"
 #include "qlog.h"
+#include "picoquic_newreno.h"
+#include "picoquic_cubic.h"
+#include "picoquic_bbr.h"
+#include "picoquic_prague.h"
 
 static test_api_stream_desc_t test_scenario_l4s[] = {
     { 4, 0, 257, 1000000 },
@@ -130,7 +134,8 @@ int l4s_prague_test()
 {
     picoquic_congestion_algorithm_t* ccalgo = picoquic_prague_algorithm;
 
-    int ret = l4s_congestion_test(ccalgo, 1, 3500000, 7, 1500, 0, NULL);
+    /* TODO increased max_completion_time for 100ms, because of "app limited" changes */
+    int ret = l4s_congestion_test(ccalgo, 1, 3600000, 7, 1500, 0, NULL);
 
     return ret;
 }

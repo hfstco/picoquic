@@ -278,6 +278,7 @@ typedef struct st_picoquic_bbr1_state_t {
     uint64_t congestion_sequence; /* sequence number after congestion notification */
     uint64_t cwin_before_suspension; /* So it can be restored if suspension stops. */
 
+    const char* option_string;
     uint64_t wifi_shadow_rtt; /* Shadow RTT used for wifi connections. */
     double quantum_ratio;
 
@@ -368,13 +369,89 @@ void BBR1UpdateTargetCwnd(picoquic_bbr1_state_t* bbr1_state)
     bbr1_state->target_cwnd = BBR1Inflight(bbr1_state, bbr1_state->cwnd_gain);
 }
 
-static void picoquic_bbr1_reset(picoquic_bbr1_state_t* bbr1_state, picoquic_path_t* path_x, uint64_t current_time, uint64_t wifi_shadow_rtt)
+
+/* Initialization of optional variables defined in text string
+* Syntax:
+*   T999999999: wifi_shadow_rtt, microseconds
+*   Q99999.999: quantum_ratio,
+*
+*/
+static void picoquic_bbr1_set_options(picoquic_bbr1_state_t* bbr1_state)
+{
+    const char* x = bbr1_state->option_string;
+
+    if (x != NULL) {
+        char c;
+        while ((c = *x) != 0) {
+            x++;
+            switch (c) {
+            case 'T': {
+                /* Reading digits into an uint64_t  */
+                uint64_t u = 0;
+                while ((c = *x) != 0) {
+                    if (c >= '0' && c <= '9') {
+                        u *= 10;
+                        u += c - '0';
+                        x++;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                bbr1_state->wifi_shadow_rtt = u;
+                break;
+            }
+            case 'Q': {
+                /* Reading digits ad one dot into a double  */
+                while ((c = *x) != 0) {
+                    double d = 0;
+                    double div = 1.0;
+                    int dotted = 0;
+                    while ((c = *x) != 0) {
+                        if (c >= '0' && c <= '9') {
+                            if (!dotted) {
+                                d *= 10;
+                                d += c - '0';
+                            }
+                            else {
+                                div /= 10.0;
+                                d += div * (c - '0');
+                            }
+                            x++;
+                        }
+                        else if (c == '.') {
+                            if (dotted) {
+                                break;
+                            }
+                            else {
+                                dotted = 1;
+                                x++;
+                            }
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    bbr1_state->quantum_ratio = d;
+                    break;
+                }
+            }
+            case ':':
+                /* Ignore */
+                break;
+            default:
+                break;
+            }
+        }
+    }
+}
+
+static void picoquic_bbr1_reset(picoquic_bbr1_state_t* bbr1_state, picoquic_path_t* path_x, uint64_t current_time)
 {
     memset(bbr1_state, 0, sizeof(picoquic_bbr1_state_t));
     path_x->cwin = PICOQUIC_CWIN_INITIAL;
-    bbr1_state->rt_prop = UINT64_MAX;
-    bbr1_state->wifi_shadow_rtt = path_x->cnx->quic->wifi_shadow_rtt;
-    bbr1_state->quantum_ratio = path_x->cnx->quic->bbr_quantum_ratio;
+    bbr1_state->rt_prop = UINT64_MAX; 
+    picoquic_bbr1_set_options(bbr1_state);
     if (bbr1_state->quantum_ratio == 0) {
         bbr1_state->quantum_ratio = 0.001;
     }
@@ -389,14 +466,15 @@ static void picoquic_bbr1_reset(picoquic_bbr1_state_t* bbr1_state, picoquic_path
     BBR1UpdateTargetCwnd(bbr1_state);
 }
 
-static void picoquic_bbr1_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t current_time)
+static void picoquic_bbr1_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const* option_string, uint64_t current_time)
 {
     /* Initialize the state of the congestion control algorithm */
     picoquic_bbr1_state_t* bbr1_state = (picoquic_bbr1_state_t*)malloc(sizeof(picoquic_bbr1_state_t));
 
     path_x->congestion_alg_state = (void*)bbr1_state;
     if (bbr1_state != NULL) {
-        picoquic_bbr1_reset(bbr1_state, path_x, current_time, cnx->quic->wifi_shadow_rtt);
+        bbr1_state->option_string = option_string;
+        picoquic_bbr1_reset(bbr1_state, path_x, current_time);
     }
 }
 
@@ -1138,7 +1216,7 @@ static void picoquic_bbr1_notify(
         case picoquic_congestion_notification_timeout:
             /* Non standard code to react to high rate of packet loss, or timeout loss */
             if (ack_state->lost_packet_number >= bbr1_state->congestion_sequence &&
-                picoquic_hystart_loss_test(&bbr1_state->rtt_filter, notification, ack_state->lost_packet_number, 0.20)) {
+                picoquic_cc_hystart_loss_test(&bbr1_state->rtt_filter, notification, ack_state->lost_packet_number, 0.20)) {
                 picoquic_bbr1_notify_congestion(bbr1_state, cnx, path_x, current_time,
                     (notification == picoquic_congestion_notification_timeout) ? 1 : 0);
             }
@@ -1160,7 +1238,7 @@ static void picoquic_bbr1_notify(
             }
 
             if (bbr1_state->state == picoquic_bbr1_alg_startup_long_rtt) {
-                if (picoquic_hystart_test(&bbr1_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
+                if (picoquic_cc_hystart_test(&bbr1_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
                     cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                     BBR1ExitStartupLongRtt(bbr1_state, path_x, current_time);
                 }
@@ -1177,7 +1255,7 @@ static void picoquic_bbr1_notify(
                     bbr1_state->rt_prop_stamp = current_time;
                 }
                 if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                    picoquic_hystart_increase(path_x, &bbr1_state->rtt_filter, bbr1_state->bytes_delivered);
+                    path_x->cwin += picoquic_cc_slow_start_increase(path_x, bbr1_state->bytes_delivered);
                 }
                 bbr1_state->bytes_delivered = 0;
 
@@ -1210,7 +1288,7 @@ static void picoquic_bbr1_notify(
         case picoquic_congestion_notification_cwin_blocked:
             break;
         case picoquic_congestion_notification_reset:
-            picoquic_bbr1_reset(bbr1_state, path_x, current_time, cnx->quic->wifi_shadow_rtt);
+            picoquic_bbr1_reset(bbr1_state, path_x, current_time);
             break;
         case picoquic_congestion_notification_seed_cwin:
             if (bbr1_state->state == picoquic_bbr1_alg_startup_long_rtt) {

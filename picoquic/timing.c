@@ -128,7 +128,7 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
             (rtt_sample - cnx->seed_rtt_min) < cnx->seed_rtt_min / 4) {
             uint8_t* ip_addr;
             uint8_t ip_addr_length;
-            picoquic_get_ip_addr((struct sockaddr*)&path_x->peer_addr, &ip_addr, &ip_addr_length);
+            picoquic_get_ip_addr((struct sockaddr*)&path_x->first_tuple->peer_addr, &ip_addr, &ip_addr_length);
 
             if (ip_addr_length == cnx->seed_ip_addr_length &&
                 memcmp(ip_addr, cnx->seed_ip_addr, ip_addr_length) == 0) {

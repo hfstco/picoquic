@@ -91,12 +91,13 @@ void picoquic_fastcc_seed_cwin(picoquic_fastcc_state_t* fastcc_state, picoquic_p
     }
 }
 
-void picoquic_fastcc_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t current_time)
+void picoquic_fastcc_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const* option_string, uint64_t current_time)
 {
     /* Initialize the state of the congestion control algorithm */
     picoquic_fastcc_state_t* fastcc_state = path_x->congestion_alg_state;
 #ifdef _WINDOWS
     UNREFERENCED_PARAMETER(cnx);
+    UNREFERENCED_PARAMETER(option_string);
 #endif
     
     if (fastcc_state == NULL) {
@@ -206,7 +207,7 @@ void picoquic_fastcc_notify(
             break;
         case picoquic_congestion_notification_repeat:
         case picoquic_congestion_notification_timeout:
-            if (picoquic_hystart_loss_test(&fastcc_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) {
+            if (picoquic_cc_hystart_loss_test(&fastcc_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) {
                 fastcc_notify_congestion(cnx, path_x, fastcc_state, current_time, 0,
                     (notification == picoquic_congestion_notification_timeout) ? 1 : 0);
             }
@@ -220,7 +221,7 @@ void picoquic_fastcc_notify(
         {
             uint64_t delta_rtt = 0;
 
-            picoquic_filter_rtt_min_max(&fastcc_state->rtt_filter, ack_state->rtt_measurement);
+            picoquic_cc_filter_rtt_min_max(&fastcc_state->rtt_filter, ack_state->rtt_measurement);
 
             if (fastcc_state->rtt_filter.is_init) {
                 /* We use the maximum of the last samples as the candidate for the

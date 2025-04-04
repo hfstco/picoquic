@@ -131,7 +131,7 @@ static void qlog_log_addr(FILE* f, struct sockaddr* addr_peer)
 
         fprintf(f, "\"ip_v4\": \"%d.%d.%d.%d\", \"port_v4\":%d",
             addr[0], addr[1], addr[2], addr[3],
-            ntohs(s4->sin_port));
+            s4->sin_port);
     }
     else {
         struct sockaddr_in6* s6 = (struct sockaddr_in6*)addr_peer;
@@ -150,7 +150,7 @@ static void qlog_log_addr(FILE* f, struct sockaddr* addr_peer)
                 fprintf(f, "%x", addr[(2 * i) + 1]);
             }
         }
-        fprintf(f, "\", \"port_v6\" :%d", ntohs(s6->sin6_port));
+        fprintf(f, "\", \"port_v6\" :%d", s6->sin6_port);
     }
 }
 
@@ -228,50 +228,64 @@ void qlog_preferred_address(FILE* f, bytestream* s, uint64_t len)
 void qlog_tp_version_negotiation(FILE* f, bytestream* s, uint64_t len)
 {
     size_t old_size = s->size;
+    size_t ptr_max = s->ptr + (size_t)len;
 
-    s->size = s->ptr + (size_t)len;
-    fprintf(f, "{ ");
-    if ((len & 3) != 0 || len == 0) {
-        fprintf(f, "\"bad_length\": \"%" PRIu64, len);
-    } else {
-        fprintf(f, "\"chosen\": \"");
-        for (int i = 0; i < 4 && s->ptr < s->size; i++, s->ptr++) {
-            fprintf(f, "%02x", s->data[s->ptr]);
-        }
-        fprintf(f, "\"");
-        if (s->ptr < s->size) {
-            int is_first = 1;
-            fprintf(f, ", \"others\": [");
-            do {
-                fprintf(f, "%s", (is_first)?"\"":", \"");
-                is_first = 0;
-                for (int i = 0; i < 4 && s->ptr < s->size; i++, s->ptr++) {
-                    fprintf(f, "%02x", s->data[s->ptr]);
-                }
-                fprintf(f, "\"");
-            } while (s->ptr < s->size);
-            fprintf(f, "]");
-        }
+    if (ptr_max > s->size) {
+        fprintf(f, ",\n    \"vnego_parameter_length\": %zu", (size_t)len);
+        fprintf(f, ",\n    \"bytes_available\": %zu", s->size - s->ptr);
     }
-    fprintf(f, "}");
-    s->size = old_size;
+    else {
+        s->size = s->ptr + (size_t)len;
+        fprintf(f, "{ ");
+        if ((len & 3) != 0 || len == 0) {
+            fprintf(f, "\"bad_length\": \"%" PRIu64, len);
+        }
+        else {
+            fprintf(f, "\"chosen\": \"");
+            for (int i = 0; i < 4 && s->ptr < s->size; i++, s->ptr++) {
+                fprintf(f, "%02x", s->data[s->ptr]);
+            }
+            fprintf(f, "\"");
+            if (s->ptr < s->size) {
+                int is_first = 1;
+                fprintf(f, ", \"others\": [");
+                do {
+                    fprintf(f, "%s", (is_first) ? "\"" : ", \"");
+                    is_first = 0;
+                    for (int i = 0; i < 4 && s->ptr < s->size; i++, s->ptr++) {
+                        fprintf(f, "%02x", s->data[s->ptr]);
+                    }
+                    fprintf(f, "\"");
+                } while (s->ptr < s->size);
+                fprintf(f, "]");
+            }
+        }
+        fprintf(f, "}");
+        s->size = old_size;
+    }
 }
 
 
-int qlog_transport_extensions(FILE* f, bytestream* s, size_t tp_length)
+int qlog_transport_extensions(FILE* f, bytestream* v, size_t tp_length)
 {
     int ret = 0;
-    size_t ptr_max = s->ptr + tp_length;
+    size_t ptr_max = v->ptr + tp_length;
 
-    if (ptr_max < s->size) {
+    if (ptr_max > v->size) {
         fprintf(f, ",\n    \"transport_parameter_length\": %zu", tp_length);
-        fprintf(f, ",\n    \"bytes_available\": %zu" PRIu64, s->size - s->ptr);
+        fprintf(f, ",\n    \"bytes_available\": %zu" PRIu64, v->size - v->ptr);
     } else {
+        bytestream bs = { 0 };
+        bytestream* s = &bs;
+        bs.data = v->data;
+        bs.size = v->ptr + tp_length;
+        bs.ptr = v->ptr;
+        v->size += tp_length;
+
         while (ret == 0 && s->ptr < ptr_max) {
             uint64_t extension_type = UINT64_MAX;
             uint64_t extension_length = 0;
             size_t current_ptr = s->ptr;
-
 
             ret |= byteread_vint(s, &extension_type);
             ret |= byteread_vint(s, &extension_length);
@@ -279,9 +293,10 @@ int qlog_transport_extensions(FILE* f, bytestream* s, size_t tp_length)
             fprintf(f, ",\n    ");
 
             if (ret != 0 || bytestream_remain(s) < extension_length) {
-                size_t len = bytestream_remain(s);
+                size_t len = 0;
                 ret = -1;
                 s->ptr = current_ptr;
+                len = bytestream_remain(s);
                 /* Print invalid parameter there */
                 fprintf(f, "\"Parameter_coding_error\": ");
                 qlog_string(f, s, len);
@@ -821,11 +836,21 @@ void qlog_max_path_id_frame(FILE* f, bytestream* s)
     fprintf(f, ", \"max_path_id\": %"PRIu64, max_path_id);
 }
 
-void qlog_path_blocked_frame(FILE* f, bytestream* s)
+void qlog_paths_blocked_frame(FILE* f, bytestream* s)
 {
     uint64_t max_path_id = 0;
     byteread_vint(s, &max_path_id);
     fprintf(f, ", \"max_path_id\": %"PRIu64, max_path_id);
+}
+
+void qlog_path_cid_blocked_frame(FILE* f, bytestream* s)
+{
+    uint64_t path_id = 0;
+    uint64_t next_sequence_number = 0;
+    byteread_vint(s, &path_id);
+    byteread_vint(s, &next_sequence_number);
+    fprintf(f, ", \"path_id\": %"PRIu64, path_id);
+    fprintf(f, ", \"next_sequence_number\": %"PRIu64, next_sequence_number);
 }
 
 void qlog_reset_stream_frame(FILE* f, bytestream* s)
@@ -1319,8 +1344,11 @@ int qlog_packet_frame(bytestream * s, void * ptr)
     case picoquic_frame_type_max_path_id:
         qlog_max_path_id_frame(f, s);
         break;
-    case picoquic_frame_type_path_blocked:
-        qlog_path_blocked_frame(f, s);
+    case picoquic_frame_type_paths_blocked:
+        qlog_paths_blocked_frame(f, s);
+        break;
+    case picoquic_frame_type_path_cid_blocked:
+        qlog_path_cid_blocked_frame(f, s);
         break;
     case picoquic_frame_type_observed_address_v4:
     case picoquic_frame_type_observed_address_v6:
