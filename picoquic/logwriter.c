@@ -1238,7 +1238,7 @@ void binlog_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time)
  * Call either just after processing a received packet, or just after
  * sending a packet.
  */
-
+/* TODO update */
 void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
 {
     if (cnx->f_binlog == NULL) {
@@ -1253,8 +1253,9 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
     {
         picoquic_path_t* path = cnx->path[path_id];
         picoquic_packet_context_t* pkt_ctx = &cnx->pkt_ctx[picoquic_packet_context_application];
-        if (cnx->is_multipath_enabled && cnx->path[path_id]->p_remote_cnxid != NULL) {
-            pkt_ctx = &cnx->path[path_id]->p_remote_cnxid->pkt_ctx;
+
+        if (cnx->is_multipath_enabled) {
+            pkt_ctx = &cnx->path[path_id]->pkt_ctx;
         }
 
         if (!path->is_cr_data_updated) {

@@ -579,6 +579,12 @@ int quicperf_media_test();
 int quicperf_multi_test();
 int quicperf_overflow_test();
 int cplusplustest();
+int careful_resume_simple_test();
+int careful_resume_overshoot_test();
+int careful_resume_undershoot_test();
+int careful_resume_loss_test();
+int careful_resume_enter_normal_from_unvalidated_test();
+int careful_resume_rtt_not_valid_test();
 
 #ifdef __cplusplus
 }

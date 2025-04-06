@@ -3300,5 +3300,41 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+
+	    TEST_METHOD(careful_resume_simple) {
+            int ret = careful_resume_simple_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_overshoot) {
+            int ret = careful_resume_overshoot_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_undershoot) {
+            int ret = careful_resume_undershoot_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_loss) {
+            int ret = careful_resume_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_enter_normal_from_unvalidated) {
+            int ret = careful_resume_enter_normal_from_unvalidated_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+	    TEST_METHOD(careful_resume_rtt_not_valid) {
+            int ret = careful_resume_rtt_not_valid_test();
+
+            Assert::AreEqual(ret, 0);
+        }
     };
 }

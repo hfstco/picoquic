@@ -121,6 +121,7 @@ int picoquic_cr_log_file_to_csv(char const* bin_cr_log_name, char const* csv_cr_
     return ret;
 }
 
+/* TODO update */
 int picoquic_cr_bin_to_csv(FILE * f_binlog, FILE * f_csvlog)
 {
     int ret = 0;

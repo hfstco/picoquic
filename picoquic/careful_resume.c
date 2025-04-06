@@ -146,7 +146,7 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_cwin_blocked:
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_reconnaissance:
-                    if (cr_state->saved_congestion_window != UINT64_MAX) {
+                    if (cr_state->saved_congestion_window != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10) {
                         cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
                         picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                     }
@@ -262,7 +262,7 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t*
         picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
     }
 
-    cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
+    cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x) - 1;
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
@@ -297,6 +297,11 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_
         equal to 29 + 34 = 66 packets. Assuming IW=10. The CWND is reset to
         Max(10,ps/2) = Max(10,66/2) = 33 packets. */
     path_x->cwin = (cr_state->pipesize / 2 >= PICOQUIC_CWIN_INITIAL) ? cr_state->pipesize / 2 : PICOQUIC_CWIN_INITIAL;
+
+    /* Set last unvalidated packet if enter SAFE RETREAT in UNVAL and not already set when entering VALIDATING. */
+    if (cr_state->last_unvalidated_packet == UINT64_MAX) {
+        cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x) - 1;
+    }
 
     /* *Safe Retreat Phase (Removing saved information): The set of saved
         CC parameters for the path are deleted, to prevent these from

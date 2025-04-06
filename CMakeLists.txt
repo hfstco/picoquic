@@ -78,6 +78,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/bbr.c
     picoquic/bbr1.c
     picoquic/bytestream.c
+    picoquic/careful_resume.c
     picoquic/cc_common.c
     picoquic/config.c
     picoquic/cubic.c
@@ -155,6 +156,7 @@ set(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/ack_frequency_test.c
     picoquictest/app_limited.c
     picoquictest/bytestream_test.c
+    picoquictest/careful_resume_test.c
     picoquictest/cc_compete_test.c
     picoquictest/cert_verify_test.c
     picoquictest/cleartext_aead_test.c

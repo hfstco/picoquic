@@ -55,7 +55,6 @@ typedef struct qlog_context_st {
     uint64_t old;
     uint64_t new;
     uint64_t pipesize;
-    //uint64_t cr_mark;
     uint64_t first_unvalidated_packet;
     uint64_t last_unvalidated_packet;
     uint64_t congestion_window; /* TODO maybe reuse cwin var above? */
@@ -1516,7 +1515,6 @@ int qlog_cc_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     return ret;
 }
 
-/* TODO */
 int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
 {
     int ret = 0;

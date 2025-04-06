@@ -390,6 +390,8 @@ static const picoquic_test_def_t test_table[] = {
     { "careful_resume_simple", careful_resume_simple_test },
     { "careful_resume_overshoot", careful_resume_overshoot_test },
     { "careful_resume_undershoot", careful_resume_undershoot_test },
+    { "careful_resume_loss", careful_resume_loss_test },
+    {"careful_resume_enter_normal_from_unvalidated", careful_resume_enter_normal_from_unvalidated_test },
     { "careful_resume_rtt_not_valid", careful_resume_rtt_not_valid_test },
     { "optimistic_ack", optimistic_ack_test },
     { "optimistic_hole", optimistic_hole_test },
