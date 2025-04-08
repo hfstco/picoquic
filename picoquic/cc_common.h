@@ -117,6 +117,7 @@ typedef enum {
     picoquic_cr_trigger_undefined = 0,
     picoquic_cr_trigger_cwnd_limited,
     picoquic_cr_trigger_rtt_not_validated,
+    picoquic_cr_trigger_last_unvalidated_packet_sent,
     picoquic_cr_trigger_first_unvalidated_packet_acknowledged,
     picoquic_cr_trigger_rtt_exceeded,
     picoquic_cr_trigger_rate_limited,

@@ -153,7 +153,7 @@ void picoquic_cr_notify(
                     break;
                 case picoquic_cr_alg_unvalidated:
                     /* UNVAL: If( >1 RTT has passed or FS=CWND or first unvalidated packet is ACKed), enter Validating */
-                    /* TODO no trigger? */
+                    cr_state->trigger = picoquic_cr_trigger_last_unvalidated_packet_sent;
                     picoquic_cr_enter_validating(cr_state, cnx, path_x, current_time);
                     break;
                 default:
@@ -169,6 +169,9 @@ void picoquic_cr_notify(
                     if (path_x->cwin < ack_state->nb_bytes_acknowledged / 2) {
                         cr_state->saved_congestion_window = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
                         cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
+                        fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_seed_cwin saved_congestion_window=%" PRIu64 ", saved_rtt=%" PRIu64 "\n",
+                            (current_time - path_x->cnx->start_time), cr_state->saved_congestion_window, cr_state->saved_rtt);
+                        fflush(stdout);
 
                         /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
                         if (path_x->bytes_in_transit >= path_x->cwin) {
@@ -190,6 +193,7 @@ void picoquic_cr_notify(
 void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                  uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "%s", (current_time - path_x->cnx->start_time), "picoquic_resume_enter_recon()\n");
+    fflush(stdout);
 
     cr_state->previous_alg_state = picoquic_cr_alg_reconnaissance;
     cr_state->alg_state = picoquic_cr_alg_reconnaissance;
@@ -208,6 +212,7 @@ void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cn
 void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                              uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_unval(unique_path_id=%" PRIu64 ")\n", (current_time - path_x->cnx->start_time), path_x->unique_path_id);
+    fflush(stdout);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_unvalidated;
@@ -240,6 +245,7 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t*
                                 uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);
+    fflush(stdout);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_validating;
@@ -273,6 +279,7 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_
                                uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_retreat(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);
+    fflush(stdout);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_safe_retreat;
@@ -317,6 +324,7 @@ void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx
                               uint64_t current_time) {
     fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_normal(unique_path_id=%" PRIu64 ")\n",
            (current_time - path_x->cnx->start_time), path_x->unique_path_id);
+    fflush(stdout);
 
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_normal;
