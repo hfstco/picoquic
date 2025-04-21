@@ -132,7 +132,7 @@ static int careful_resume_test_one(picoquic_congestion_algorithm_t* ccalgo, size
 
 int careful_resume_simple_test()
 {
-    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 700000, 100, 100, 50000, 0, 2500000, 100000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 550000, 20, 20, 20000, 0, 100000, 40000);
 }
 
 int careful_resume_overshoot_test()
