@@ -1584,22 +1584,22 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             if (old_phase != ctx->old) {
                 switch (old_phase) {
                     case 0:
-                        fprintf(f, "%s\"old_phase\": \"normal\"", comma);
+                        fprintf(f, "%s\"old\": \"normal\"", comma);
                     break;
                     case 1:
-                        fprintf(f, "%s\"old_phase\": \"reconnaissance\"", comma);
+                        fprintf(f, "%s\"old\": \"reconnaissance\"", comma);
                     break;
                     case 2:
-                        fprintf(f, "%s\"old_phase\": \"unvalidated\"", comma);
+                        fprintf(f, "%s\"old\": \"unvalidated\"", comma);
                     break;
                     case 3:
-                        fprintf(f, "%s\"old_phase\": \"validating\"", comma);
+                        fprintf(f, "%s\"old\": \"validating\"", comma);
                     break;
                     case 4:
-                        fprintf(f, "%s\"old_phase\": \"safe_retreat\"", comma);
+                        fprintf(f, "%s\"old\": \"safe_retreat\"", comma);
                     break;
                     default:
-                        fprintf(f, "%s\"old_phase\": \"UNDEFINED\"", comma);
+                        fprintf(f, "%s\"old\": \"UNDEFINED\"", comma);
                     break;
                 }
                 ctx->old = old_phase;
@@ -1614,22 +1614,22 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
         }*/
         switch (new_phase) {
             case 0:
-                fprintf(f, "%s\"new_phase\": \"normal\"", comma);
+                fprintf(f, "%s\"new\": \"normal\"", comma);
             break;
             case 1:
-                fprintf(f, "%s\"new_phase\": \"reconnaissance\"", comma);
+                fprintf(f, "%s\"new\": \"reconnaissance\"", comma);
             break;
             case 2:
-                fprintf(f, "%s\"new_phase\": \"unvalidated\"", comma);
+                fprintf(f, "%s\"new\": \"unvalidated\"", comma);
             break;
             case 3:
-                fprintf(f, "%s\"new_phase\": \"validating\"", comma);
+                fprintf(f, "%s\"new\": \"validating\"", comma);
             break;
             case 4:
-                fprintf(f, "%s\"new_phase\": \"safe_retreat\"", comma);
+                fprintf(f, "%s\"new\": \"safe_retreat\"", comma);
             break;
             default:
-                fprintf(f, "%s\"new_phase\": \"UNDEFINED\"", comma);
+                fprintf(f, "%s\"new\": \"UNDEFINED\"", comma);
             break;
         }
         ctx->new = new_phase;

@@ -9,7 +9,7 @@
 #include <string.h>
 #include "cc_common.h"
 
-/* Reset careful resume context. == Enter RECON phase. */
+/* Reset careful resume context & enter RECON phase. */
 void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time) {
     fprintf(stdout, "picoquic_cr_reset()\n");
     memset(cr_state, 0, sizeof(picoquic_cr_state_t));
@@ -244,8 +244,8 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t
 /* Enter VALIDATING phase. */
 void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                 uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
-           current_time, picoquic_cc_get_sequence_number(cnx, path_x) - 1, cr_state->trigger);
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(cwin=%" PRIu64 ", last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
+           current_time, path_x->cwin, picoquic_cc_get_sequence_number(cnx, path_x) - 1, cr_state->trigger);
     fflush(stdout);
 
     cr_state->previous_alg_state = cr_state->alg_state;
