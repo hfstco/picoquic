@@ -2969,8 +2969,6 @@ void process_decoded_packet_data(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
     }
 
     if (cnx->path[0]->is_ssthresh_initialized && !cnx->path[0]->is_ticket_seeded) {
-        fprintf(stdout, "picoquic_seed_ticket(), cwnd=%" PRIu64 ", rtt=%" PRIu64 "\n", path_x->cwin, path_x->rtt_min);
-        fflush(stdout);
         picoquic_seed_ticket(cnx, cnx->path[0]);
     }
 }
