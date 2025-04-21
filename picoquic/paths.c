@@ -227,6 +227,7 @@ int picoquic_prepare_path_control_packet(picoquic_cnx_t* cnx, picoquic_path_t* p
         SET_LAST_WAKE(cnx->quic, PICOQUIC_SENDER);
 
         if (ret == 0 && picoquic_cnx_is_still_logging(cnx)) {
+            picoquic_log_cr_dump(cnx, current_time);
             picoquic_log_cc_dump(cnx, current_time);
         }
     }

@@ -3669,12 +3669,13 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t* path_x, 
     if (*send_length > 0) {
         *next_wake_time = current_time;
         SET_LAST_WAKE(cnx->quic, PICOQUIC_SENDER);
-
-        if (ret == 0 && picoquic_cnx_is_still_logging(cnx)) {
-            picoquic_log_cr_dump(cnx, current_time);
-            picoquic_log_cc_dump(cnx, current_time);
-        }
     }
+
+    if (ret == 0 && picoquic_cnx_is_still_logging(cnx)) {
+        picoquic_log_cr_dump(cnx, current_time);
+        picoquic_log_cc_dump(cnx, current_time);
+    }
+
     return ret;
 }
 
