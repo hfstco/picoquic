@@ -1295,7 +1295,7 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
         }
 
         if (cr_state != NULL) {
-            /* CarefulResumePhase =
+            /*  CarefulResumePhase =
              *      "reconnaissance" /
              *      "unvalidated" /
              *      "validating" /
@@ -1308,25 +1308,25 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
             /* new: CarefulResumePhase */
             bytewrite_vint(ps_msg, cr_state->alg_state);
 
-            /* CarefulResumeStateParameters = {
-             *      pipesize: uint,
-             *      cr_mark: uint,
-             *      ? congestion_window: uint,
-             *      ? ssthresh: uint
-             * }
+            /*  CarefulResumeStateParameters = {
+             *      pipesize: uint32,
+             *      first_unvalidated_packet: uint32,
+             *      last_unvalidated_packet: uint32,
+             *      ? congestion_window: uint32,
+             *      ? ssthresh: uint32
+             *  }
              */
             /* state_data: CarefulResumeStateParameters */
             bytewrite_vint(ps_msg, cr_state->pipesize);
-            //bytewrite_vint(ps_msg, cr_state->cr_mark);
             bytewrite_vint(ps_msg, cr_state->first_unvalidated_packet);
             bytewrite_vint(ps_msg, cr_state->last_unvalidated_packet);
             bytewrite_vint(ps_msg, path->cwin);
-            bytewrite_vint(ps_msg, cr_state->ssthresh);
+            bytewrite_vint(ps_msg, cr_state->ssthresh); /* TODO ssthresh only in cubic state. ssthresh in cr_state will is reseted in CC code. */
 
-            /* CarefulResumeRestoredParameters = {
-             *      previous_congestion_window: uint,
+            /*  CarefulResumeRestoredParameters = {
+             *      previous_congestion_window: uint32,
              *      previous_rtt: float32
-             * }
+             *  }
              */
             /* ? restored_data: CarefulResumeRestoredParameters */
             bytewrite_vint(ps_msg, cr_state->saved_congestion_window);

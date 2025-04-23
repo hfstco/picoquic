@@ -1530,7 +1530,6 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     uint64_t new_phase = 0;
 
     uint64_t pipesize = 0;
-    //uint64_t cr_mark = 0;
     uint64_t first_unvalidated_packet = 0;
     uint64_t last_unvalidated_packet = 0;
     uint64_t congestion_window = 0;
@@ -1556,7 +1555,6 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     ret |= byteread_vint(s, &new_phase);
 
     ret |= byteread_vint(s, &pipesize);
-    //ret |= byteread_vint(s, &cr_mark);
     ret |= byteread_vint(s, &first_unvalidated_packet);
     ret |= byteread_vint(s, &last_unvalidated_packet);
     ret |= byteread_vint(s, &congestion_window);
