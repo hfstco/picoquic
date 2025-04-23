@@ -26,6 +26,7 @@
 
 #include "picoquic_internal.h"
 #include "bytestream.h"
+#include "cc_common.h"
 #include "logreader.h"
 #include "logconvert.h"
 
@@ -1679,33 +1680,37 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
 
         if (trigger != ctx->trigger) {
             switch (trigger) {
-                case 1:
+                case picoquic_cr_trigger_cwnd_limited:
                     fprintf(f, "%s\"trigger\": \"cwnd_limited\"", comma);
                 break;
-                case 2:
+                case picoquic_cr_trigger_rtt_not_validated:
                     fprintf(f, "%s\"trigger\": \"rtt_not_validated\"", comma);
                 break;
-                case 3:
+                case picoquic_cr_trigger_last_unvalidated_packet_sent:
+                    fprintf(f, "%s\"trigger\": \"last_unvalidated_packet_sent\"", comma);
+                    break;
+                case picoquic_cr_trigger_first_unvalidated_packet_acknowledged:
                     fprintf(f, "%s\"trigger\": \"first_unvalidated_packet_acknowledged\"", comma);
                 break;
-                case 4:
+                case picoquic_cr_trigger_rtt_exceeded:
                     fprintf(f, "%s\"trigger\": \"rtt_exceeded\"", comma);
                 break;
-                case 5:
+                case picoquic_cr_trigger_rate_limited:
                     fprintf(f, "%s\"trigger\": \"rate_limited\"", comma);
                 break;
-                case 6:
+                case picoquic_cr_trigger_last_unvalidated_packet_acknowledged:
                     fprintf(f, "%s\"trigger\": \"last_unvalidated_packet_acknowledged\"", comma);
                 break;
-                case 7:
+                case picoquic_cr_trigger_packet_loss:
                     fprintf(f, "%s\"trigger\": \"packet_loss\"", comma);
                 break;
-                case 8:
+                case picoquic_cr_trigger_ECN_CE:
                     fprintf(f, "%s\"trigger\": \"ECN_CE\"", comma);
                 break;
-                case 9:
+                case picoquic_cr_trigger_exit_recovery:
                     fprintf(f, "%s\"trigger\": \"exit_recovery\"", comma);
                 break;
+                case picoquic_cr_trigger_undefined:
                 default:
                     fprintf(f, "%s\"trigger\": \"UNDEFINED\"", comma);
                 break;
