@@ -122,7 +122,6 @@ void picoquic_cr_notify(
                         congestion (e.g., packet loss or ECN-CE marking), the sender does
                         not use the Careful Resume method and MUST enter the Normal Phase
                         to respond to the detected congestion. */
-                    /* TODO no trigger? */
                     picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
                     break;
                 case picoquic_cr_alg_unvalidated:
@@ -131,7 +130,6 @@ void picoquic_cr_notify(
                     /* *Validating Phase (Congestion indication): If a sender determines
                         that congestion was experienced (e.g., packet loss or ECN-CE
                         marking), Careful Resume enters the Safe Retreat Phase. */
-                    cr_state->trigger = (notification == picoquic_congestion_notification_ecn_ec) ? picoquic_cr_trigger_ECN_CE : picoquic_cr_trigger_packet_loss;
                     picoquic_cr_enter_safe_retreat(cr_state, cnx, path_x, current_time);
                     break;
                 default:
