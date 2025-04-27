@@ -79,7 +79,7 @@ void picoquic_cr_notify(
                         packets): The sender enters the Normal Phase when an
                         acknowledgement is received for the last packet number (or
                         higher) that was sent in the Unvalidated Phase. */
-                    if (picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
+                    if (picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
                         cr_state->trigger = picoquic_cr_trigger_last_unvalidated_packet_acknowledged;
                         picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
                     }
@@ -101,7 +101,7 @@ void picoquic_cr_notify(
                         (or higher) sent in the Unvalidated Phase is acknowledged. If the
                         last packet number is not cumulatively acknowledged, then additional
                         packets might need to be retransmitted. */
-                    if (picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
+                    if (picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= cr_state->last_unvalidated_packet) {
                         cr_state->ssthresh = cr_state->pipesize * PICOQUIC_CR_BETA;
                         cr_state->trigger = picoquic_cr_trigger_exit_recovery;
                         picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
