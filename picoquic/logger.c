@@ -2066,9 +2066,10 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
     picoquic_path_t * path_x = cnx->path[0];
 
     picoquic_cr_state_t* cr_state;
+    picoquic_cubic_state_t* cubic_state;
     switch (cnx->congestion_alg->congestion_algorithm_number) {
         case PICOQUIC_CC_ALGO_NUMBER_CUBIC: {
-                picoquic_cubic_state_t* cubic_state = path_x->congestion_alg_state;
+                cubic_state = path_x->congestion_alg_state;
                 cr_state = &cubic_state->cr_state;
             }
             break;
@@ -2146,7 +2147,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         fprintf(F, "first_unvalidated_packet: %d,", (int)cr_state->first_unvalidated_packet);
         fprintf(F, "last_unvalidated_packet: %d,", (int)cr_state->last_unvalidated_packet);
         fprintf(F, "congestion_window: %d,", (int)path_x->cwin);
-        fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
+        fprintf(F, "ssthresh: %d,", (int)cubic_state->ssthresh);
 
         /* CarefulResumeRestoredParameters = {
          *      saved_congestion_window: uint32,

@@ -41,9 +41,9 @@
  *
  * The satellite link that we define here corresponds to models suggested by
  * John Border of Hughes: 250 Mbps for the server to client link, 3 Mbps for the client
- * to server link. We reverse the role, as our test sends data from the cleint to the
+ * to server link. We reverse the role, as our test sends data from the client to the
  * server. John suggested tested with a 1GB download; we compromise here to 100MB,
- * in order to execut the test in reasonable time. There should be two test
+ * in order to execute the test in reasonable time. There should be two test
  * variants: 0% loss, and 1 %loss.
  */
 static int careful_resume_test_one(picoquic_congestion_algorithm_t* ccalgo, size_t data_size, uint64_t max_completion_time,
@@ -84,8 +84,6 @@ static int careful_resume_test_one(picoquic_congestion_algorithm_t* ccalgo, size
         ret = -1;
     }
 
-    /* Simulate satellite links: 250 mbps, 300ms delay in each direction */
-    /* Set the congestion algorithm to specified value. Also, request a packet trace */
     if (ret == 0) {
         picoquic_set_default_congestion_algorithm(test_ctx->qserver, ccalgo);
         picoquic_set_congestion_algorithm(test_ctx->cnx_client, ccalgo);
@@ -137,7 +135,7 @@ int careful_resume_simple_test()
 
 int careful_resume_satellite_test() /* high BDP. */
 {
-    return careful_resume_test_one(picoquic_cubic_algorithm, 200000000, 0, 50, 5, 300000, 0, 3750000, 600000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 20000000, 6000000, 50, 5, 300000, 0, 3750000, 600000);
 }
 
 int careful_resume_overshoot_test()
@@ -152,7 +150,7 @@ int careful_resume_undershoot_test()
 
 int careful_resume_loss_test()
 {
-    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 3650000, 20, 20, 20000, 0xf000000, 100000, 40000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 4100000, 20, 20, 20000, 0xf000000, 100000, 40000);
 }
 
 int careful_resume_enter_normal_from_unvalidated_test()

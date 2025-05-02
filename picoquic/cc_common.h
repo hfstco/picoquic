@@ -135,27 +135,34 @@ typedef enum {
     picoquic_cr_alg_safe_retreat, // = 4,
 } picoquic_cr_alg_state_t;
 
+#define PICOQUIC_CR_IS_CWIN_INCREASE_BLOCKED(cr_state) (cr_state.alg_state == picoquic_cr_alg_unvalidated || cr_state.alg_state == picoquic_cr_alg_safe_retreat)
+#define PICOQUIC_CR_IS_RUNNING(cr_state) (cr_state.alg_state == picoquic_cr_alg_unvalidated || cr_state.alg_state == picoquic_cr_alg_validating || cr_state.alg_state == picoquic_cr_alg_safe_retreat)
+
 typedef struct st_picoquic_cr_state_t {
     uint64_t start_of_epoch; /* start timestamp of current state in us */
-    uint64_t previous_start_of_epoch; /* start timestamp of previous state in us */
 
     picoquic_cr_alg_state_t previous_alg_state; /* previous state of careful resume. only for qlog and logging. */
     picoquic_cr_alg_state_t alg_state; /* current state of the careful resume algorithm */
 
     uint64_t pipesize; /* pipesize in bytes */
-    uint64_t first_unvalidated_packet;
-    uint64_t last_unvalidated_packet;
+    uint64_t first_unvalidated_packet; /* first unvalidated packet of CR jump. */
+    uint64_t last_unvalidated_packet; /* last unvalidated packet of CR jump. */
 
     uint64_t saved_rtt; /* observed RTT from previous connection in us */
     uint64_t saved_congestion_window; /* observed CWND from previous connection in bytes */
 
     picoquic_cr_trigger_t trigger; /* last trigger triggered. */
-
-    /* return values, :/ */
-    uint64_t ssthresh; /* TODO and pass slow start threshold by return value? */
 } picoquic_cr_state_t;
 
 void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+
+uint64_t picoquic_cr_ack(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+    picoquic_per_ack_state_t* ack_state, uint64_t current_time);
+void picoquic_cr_congestion(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+    picoquic_congestion_notification_t notification, uint64_t current_time);
+void picoquic_cr_cwin_blocked(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_seed_cwin(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+    picoquic_per_ack_state_t* ack_state, uint64_t current_time);
 
 /* NOTE recon phase entered on init only */
 void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
@@ -163,9 +170,6 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t
 void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
 void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
-
-void picoquic_cr_notify(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
-    picoquic_congestion_notification_t notification, picoquic_per_ack_state_t* ack_state, uint64_t current_time);
 
 /* Many congestion control algorithms run a parallel version of new reno in order
  * to provide a lower bound estimate of either the congestion window or the

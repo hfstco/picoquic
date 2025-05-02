@@ -1284,9 +1284,10 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
         }
 
         picoquic_cr_state_t *cr_state;
+        picoquic_cubic_state_t *cubic_state;
         switch(cnx->congestion_alg->congestion_algorithm_number) {
             case PICOQUIC_CC_ALGO_NUMBER_CUBIC: {
-                picoquic_cubic_state_t *cubic_state = path->congestion_alg_state;
+                cubic_state = path->congestion_alg_state;
                 cr_state = &cubic_state->cr_state;
                 }
                 break;
@@ -1321,7 +1322,7 @@ void binlog_cr_dump(picoquic_cnx_t* cnx, uint64_t current_time)
             bytewrite_vint(ps_msg, cr_state->first_unvalidated_packet);
             bytewrite_vint(ps_msg, cr_state->last_unvalidated_packet);
             bytewrite_vint(ps_msg, path->cwin);
-            bytewrite_vint(ps_msg, cr_state->ssthresh); /* TODO ssthresh only in cubic state. ssthresh in cr_state will is reseted in CC code. */
+            bytewrite_vint(ps_msg, cubic_state->ssthresh); /* TODO ssthresh only in cubic state. ssthresh in cr_state will is reseted in CC code. */
 
             /*  CarefulResumeRestoredParameters = {
              *      previous_congestion_window: uint32,

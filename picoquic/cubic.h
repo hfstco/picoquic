@@ -33,7 +33,7 @@ typedef struct st_picoquic_cubic_state_t {
     picoquic_cr_state_t cr_state;
 } picoquic_cubic_state_t;
 
-void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time);
+void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
 
 void cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const* option_string, uint64_t current_time);
 
