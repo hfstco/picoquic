@@ -135,6 +135,11 @@ int careful_resume_simple_test()
     return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 550000, 20, 20, 20000, 0, 100000, 40000);
 }
 
+int careful_resume_satellite_test() /* high BDP. */
+{
+    return careful_resume_test_one(picoquic_cubic_algorithm, 200000000, 0, 50, 5, 300000, 0, 3750000, 600000);
+}
+
 int careful_resume_overshoot_test()
 {
     return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 900000, 20, 20, 20000, 0, 1000000, 40000);
