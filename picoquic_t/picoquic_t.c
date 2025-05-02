@@ -388,6 +388,7 @@ static const picoquic_test_def_t test_table[] = {
     { "bdp_short_lo", bdp_short_lo_test },
     { "cid_length", cid_length_test },
     { "careful_resume_simple", careful_resume_simple_test },
+    { "careful_resume_satellite", careful_resume_satellite_test },
     { "careful_resume_overshoot", careful_resume_overshoot_test },
     { "careful_resume_undershoot", careful_resume_undershoot_test },
     { "careful_resume_loss", careful_resume_loss_test },

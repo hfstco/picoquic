@@ -3314,6 +3314,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+	    TEST_METHOD(careful_resume_satellite) {
+            int ret = careful_resume_satellite_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
 	    TEST_METHOD(careful_resume_overshoot) {
             int ret = careful_resume_overshoot_test();
 

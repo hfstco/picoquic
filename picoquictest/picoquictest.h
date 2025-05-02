@@ -581,6 +581,7 @@ int quicperf_multi_test();
 int quicperf_overflow_test();
 int cplusplustest();
 int careful_resume_simple_test();
+int careful_resume_satellite_test();
 int careful_resume_overshoot_test();
 int careful_resume_undershoot_test();
 int careful_resume_loss_test();
