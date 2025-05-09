@@ -1436,6 +1436,7 @@ int qlog_cc_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     ret |= byteread_vint(s, &bw_max);
     ret |= byteread_vint(s, &bytes_in_transit);
     /* Not checking the app limited return, because it is not present in old bin logs */
+    //HERE
     (void) byteread_vint(s, &app_limited);
 
     if (ret == 0 &&

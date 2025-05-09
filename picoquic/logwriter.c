@@ -1222,6 +1222,7 @@ void binlog_cc_dump(picoquic_cnx_t* cnx, uint64_t current_time)
 
         bytewrite_vint(ps_msg, path->peak_bandwidth_estimate);
         bytewrite_vint(ps_msg, path->bytes_in_transit);
+        //HERE
         bytewrite_vint(ps_msg, path->last_bw_estimate_path_limited);
 
         bytestream_buf stream_head;

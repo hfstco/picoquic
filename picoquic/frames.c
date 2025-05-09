@@ -2607,7 +2607,7 @@ void picoquic_dequeue_old_retransmitted_packets(picoquic_cnx_t* cnx, picoquic_pa
 
 void picoquic_estimate_path_bandwidth(picoquic_cnx_t * cnx, picoquic_path_t* path_x, uint64_t send_time,
     uint64_t delivered_prior, uint64_t delivered_time_prior, uint64_t delivered_sent_prior,
-    uint64_t delivery_time, uint64_t current_time, int rs_is_path_limited)
+    uint64_t delivery_time, uint64_t current_time, int rs_is_path_limited) //HERE
 {
     if (send_time >= path_x->delivered_sent_last) {
         if (path_x->delivered_time_last == 0) {
@@ -2652,6 +2652,7 @@ void picoquic_estimate_path_bandwidth(picoquic_cnx_t * cnx, picoquic_path_t* pat
                 path_x->delivered_time_last = delivery_time;
                 path_x->delivered_sent_last = send_time;
                 path_x->delivered_last_packet = delivered_prior;
+                //HERE
                 path_x->last_bw_estimate_path_limited = rs_is_path_limited;
                 if (path_x->delivered_last_packet > path_x->delivered_limited_index) {
                     path_x->delivered_limited_index = 0;
@@ -2904,6 +2905,7 @@ void picoquic_record_ack_packet_data(picoquic_packet_data_t* packet_data, picoqu
             packet_data->path_ack[path_i].delivered_sent_prior = acked_packet->delivered_sent_prior;
             packet_data->path_ack[path_i].lost_prior = acked_packet->lost_prior;
             packet_data->path_ack[path_i].inflight_prior = acked_packet->inflight_prior;
+            //HERE
             packet_data->path_ack[path_i].rs_is_path_limited = acked_packet->delivered_app_limited;
             packet_data->path_ack[path_i].rs_is_cwnd_limited = acked_packet->sent_cwin_limited;
             packet_data->path_ack[path_i].is_set = 1;
@@ -2930,7 +2932,7 @@ void process_decoded_packet_data(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
         picoquic_estimate_path_bandwidth(cnx, packet_data->path_ack[i].acked_path, packet_data->path_ack[i].largest_sent_time,
             packet_data->path_ack[i].delivered_prior, packet_data->path_ack[i].delivered_time_prior, packet_data->path_ack[i].delivered_sent_prior,
             (packet_data->last_time_stamp_received == 0) ? current_time : packet_data->last_time_stamp_received,
-            current_time, packet_data->path_ack[i].rs_is_path_limited);
+            current_time, packet_data->path_ack[i].rs_is_path_limited); //HERE
 
         picoquic_estimate_max_path_bandwidth(cnx, packet_data->path_ack[i].acked_path, packet_data->path_ack[i].largest_sent_time,
             (packet_data->last_time_stamp_received == 0) ? current_time : packet_data->last_time_stamp_received,
