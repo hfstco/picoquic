@@ -1133,7 +1133,8 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx,
         packet->inflight_prior = path_x->bytes_in_transit;
         //HERE
         // picoquic state not ready OR delivered_limited_index != 0
-        fprintf(stdout, "sender.c:L1137\tcnx->cnx_state < picoquic_state_ready (%i < %i) || path_x->delivered_limited_index != 0 (%" PRIu64 " != 0)\n", cnx->cnx_state, picoquic_state_ready, path_x->delivered_limited_index);
+        fprintf(stdout, "%" PRIu64 "\tsender.c:L1138\tcnx->cnx_state < picoquic_state_ready (%i < %i) || path_x->delivered_limited_index != 0 (%" PRIu64 " != 0)\n",
+            current_time - cnx->start_time, cnx->cnx_state, picoquic_state_ready, path_x->delivered_limited_index);
         packet->delivered_app_limited = (cnx->cnx_state < picoquic_state_ready || path_x->delivered_limited_index != 0);
         if (path_x->bytes_in_transit >= path_x->cwin && cnx->cnx_state == picoquic_state_ready) {
             packet->sent_cwin_limited = 1;
@@ -3133,7 +3134,8 @@ int picoquic_prepare_packet_almost_ready(picoquic_cnx_t* cnx, picoquic_path_t* p
                             if (length <= header_length) {
                                 /* Mark the bandwidth estimation as application limited */
                                 //HERE
-                                fprintf(stdout, "sender.c:L3137\tpath_x->delivered_limited_index = path_x->delivered (%" PRIu64 " = %" PRIu64 "\n", path_x->delivered_limited_index, path_x->delivered);
+                                fprintf(stdout, "%" PRIu64 "\tsender.c:L3139\tpath_x->delivered_limited_index = path_x->delivered (%" PRIu64 " = %" PRIu64 "\n",
+                                    current_time - cnx->start_time, path_x->delivered_limited_index, path_x->delivered);
                                 path_x->delivered_limited_index = path_x->delivered;
                                 /* Notify the peer if something is blocked */
                                 bytes_next = picoquic_format_blocked_frames(cnx, &bytes[length], bytes_max, &more_data, &is_pure_ack);
@@ -3491,7 +3493,8 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t* path_x, 
                         if (length <= header_length || is_pure_ack) {
                             /* Mark the bandwidth estimation as application limited */
                             //HERE
-                            fprintf(stdout, "sender.c:L3495\tpath_x->delivered_limited_index = path_x->delivered (%" PRIu64 " = %" PRIu64 "\n", path_x->delivered_limited_index, path_x->delivered);
+                            fprintf(stdout, "%" PRIu64 "\tsender.c:L3498\tpath_x->delivered_limited_index = path_x->delivered (%" PRIu64 " = %" PRIu64 "\n",
+                                current_time - cnx->start_time, path_x->delivered_limited_index, path_x->delivered);
                             path_x->delivered_limited_index = path_x->delivered;
                             /* Notify the peer if something is blocked */
                             bytes_next = picoquic_format_blocked_frames(cnx, &bytes[length], bytes_max, &more_data, &is_pure_ack);
