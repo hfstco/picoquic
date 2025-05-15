@@ -190,9 +190,6 @@ void picoquic_cr_notify(
 /* Enter RECON phase. */
 void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                  uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "%s", current_time - cnx->start_time, "picoquic_cr_enter_recon()\n");
-    //fflush(stdout);
-
     cr_state->previous_alg_state = picoquic_cr_alg_reconnaissance;
     cr_state->alg_state = picoquic_cr_alg_reconnaissance;
 
@@ -204,14 +201,13 @@ void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_cn
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
+
+    fprintf(stdout, "%-30" PRIu64 "%s", current_time - cnx->start_time, "picoquic_cr_enter_recon()\n");
 }
 
 /* Enter UNVAL phase. */
 void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                              uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_unval(cwin=%" PRIu64 ", first_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
-            current_time - cnx->start_time, cr_state->saved_congestion_window / 2, picoquic_cc_get_sequence_number(cnx, path_x), cr_state->trigger);
-
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_unvalidated;
 
@@ -236,14 +232,14 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
+
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_unval(cwin=%" PRIu64 ", first_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
+            current_time - cnx->start_time, cr_state->saved_congestion_window / 2, picoquic_cc_get_sequence_number(cnx, path_x), cr_state->trigger);
 }
 
 /* Enter VALIDATING phase. */
 void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                 uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(cwin=%" PRIu64 ", last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
-           current_time - cnx->start_time, path_x->cwin, picoquic_cc_get_sequence_number(cnx, path_x), cr_state->trigger);
-
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_validating;
 
@@ -269,14 +265,14 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t*
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
+
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_validating(cwin=%" PRIu64 ", last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
+           current_time - cnx->start_time, path_x->cwin, cr_state->last_unvalidated_packet, cr_state->trigger);
 }
 
 /* Enter RETREAT phase. */
 void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_retreat(last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
-           current_time - cnx->start_time, cr_state->last_unvalidated_packet, cr_state->trigger);
-
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_safe_retreat;
 
@@ -313,14 +309,14 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
+
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_retreat(cwin=%" PRIu64 ", last_unvalidated_packet=%" PRIu64 ", trigger=%d)\n",
+           current_time - cnx->start_time, path_x->cwin, cr_state->last_unvalidated_packet, cr_state->trigger);
 }
 
 /* Enter NORMAL phase. */
 void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                               uint64_t current_time) {
-    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_normal(trigger=%d)\n",
-           current_time - cnx->start_time, cr_state->trigger);
-
     cr_state->previous_alg_state = cr_state->alg_state;
     cr_state->alg_state = picoquic_cr_alg_normal;
 
@@ -329,4 +325,7 @@ void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx
 
     /* Notify qlog. */
     path_x->is_cr_data_updated = 1;
+
+    fprintf(stdout, "%-30" PRIu64 "picoquic_cr_enter_normal(trigger=%d)\n",
+           current_time - cnx->start_time, cr_state->trigger);
 }
