@@ -22,11 +22,12 @@ typedef struct st_picoquic_cubic_state_t {
     uint64_t recovery_sequence;
     uint64_t start_of_epoch;
     uint64_t previous_start_of_epoch;
+    uint64_t previous_alg_state;
+    uint64_t previous_ssthresh;
+    uint64_t previous_cwin;
     double K;
     double W_max;
     double W_last_max;
-    double C;
-    double beta;
     double W_reno;
     uint64_t ssthresh;
     picoquic_min_max_rtt_t rtt_filter;

@@ -67,13 +67,11 @@ static int careful_resume_test_one(picoquic_congestion_algorithm_t* ccalgo, size
 
     memset(&client_parameters, 0, sizeof(picoquic_tp_t));
     picoquic_init_transport_parameters(&client_parameters, 1);
-    client_parameters.enable_time_stamp = 3;
     client_parameters.initial_max_data = UINT64_MAX;
     client_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
     client_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
     memset(&server_parameters, 0, sizeof(picoquic_tp_t));
     picoquic_init_transport_parameters(&server_parameters, 0);
-    server_parameters.enable_time_stamp = 3;
     server_parameters.initial_max_data = UINT64_MAX;
     server_parameters.initial_max_stream_data_bidi_local = UINT64_MAX;
     server_parameters.initial_max_stream_data_bidi_remote = UINT64_MAX;
@@ -147,7 +145,7 @@ int careful_resume_overshoot_test()
 
 int careful_resume_undershoot_test()
 {
-    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 650000, 20, 20, 20000, 0, 10000, 40000);
+    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 650000, 20, 20, 20000, 0, PICOQUIC_CWIN_INITIAL * 2 + 2, 40000);
 }
 
 int careful_resume_loss_test()
@@ -157,10 +155,22 @@ int careful_resume_loss_test()
 
 int careful_resume_enter_normal_from_unvalidated_test()
 {
+    /* This test is very similar to the undershoot test. */
     return careful_resume_test_one(picoquic_cubic_algorithm, 500000, 600000, 10, 10, 20000, 0, 50000, 40000);
 }
 
 int careful_resume_rtt_not_valid_test()
 {
-    return careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 650000, 20, 20, 20000, 0, 100000, 400000 + 1);
+    int ret = 0;
+
+    /* Lower bound. */
+    /* Need a slightly higher saved_rtt than 40000 * 2 + 1, because Picoquic simulator adds some processing delay on top of the RTT. */
+    ret = careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 650000, 20, 20, 20000, 0, 100000, 40000 * 2 + 2000);
+    if (ret == 0) {
+        /* Upper bound. */
+        ret = careful_resume_test_one(picoquic_cubic_algorithm, 1000000, 650000, 20, 20, 20000, 0, 100000, 40000 / 10 + 1);
+    }
+    /* TODO validate UNVAL and VALIDATING are not entered by qlogs. */
+
+    return ret;
 }

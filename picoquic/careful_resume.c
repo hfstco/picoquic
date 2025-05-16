@@ -164,18 +164,15 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_seed_cwin:
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_reconnaissance:
-                    if (path_x->cwin < ack_state->nb_bytes_acknowledged / 2) {
-                        cr_state->saved_congestion_window = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
-                        cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
-                        fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_seed_cwin saved_congestion_window=%" PRIu64 ", saved_rtt=%" PRIu64 "\n",
-                            current_time - cnx->start_time, cr_state->saved_congestion_window, cr_state->saved_rtt);
-                        //fflush(stdout);
+                    cr_state->saved_congestion_window = ack_state->nb_bytes_acknowledged; /* saved_cwnd */
+                    cr_state->saved_rtt = ack_state->rtt_measurement; /* saved_rtt */
+                    fprintf(stdout, "%-30" PRIu64 "picoquic_congestion_notification_seed_cwin saved_congestion_window=%" PRIu64 ", saved_rtt=%" PRIu64 "\n",
+                        current_time - cnx->start_time, cr_state->saved_congestion_window, cr_state->saved_rtt);
 
-                        /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
-                        if (path_x->bytes_in_transit >= path_x->cwin) {
-                            cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
-                            picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
-                        }
+                    /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
+                    if (cr_state->saved_congestion_window != UINT64_MAX && path_x->bytes_in_transit >= path_x->cwin) {
+                        cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
+                        picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                     }
                     break;
                 default:
@@ -259,6 +256,7 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t*
         path_x->cwin = cr_state->pipesize;
         cr_state->trigger = picoquic_cr_trigger_rate_limited;
         picoquic_cr_enter_normal(cr_state, cnx, path_x, current_time);
+        return;
     }
 
     cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
