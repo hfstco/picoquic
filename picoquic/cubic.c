@@ -39,6 +39,9 @@ typedef struct st_picoquic_cubic_state_t {
     uint64_t recovery_sequence;
     uint64_t start_of_epoch;
     uint64_t previous_start_of_epoch;
+    uint64_t previous_alg_state;
+    uint64_t previous_ssthresh;
+    uint64_t previous_cwin;
     double K;
     double W_max;
     double W_last_max;
@@ -78,12 +81,16 @@ static void cubic_set_options(picoquic_cubic_state_t* cubic_state)
 static void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, const char* option_string, uint64_t current_time) {
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
+    path_x->cwin = PICOQUIC_CWIN_INITIAL;
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
     cubic_state->ssthresh = UINT64_MAX;
     cubic_state->W_last_max = (double)cubic_state->ssthresh / (double)path_x->send_mtu;
     cubic_state->W_max = cubic_state->W_last_max;
     cubic_state->start_of_epoch = current_time;
-    cubic_state->previous_start_of_epoch = 0;
+    cubic_state->previous_start_of_epoch = current_time;
+    cubic_state->previous_alg_state = cubic_state->alg_state;
+    cubic_state->previous_cwin = path_x->cwin;
+    cubic_state->previous_ssthresh = UINT64_MAX;
     cubic_state->W_reno = PICOQUIC_CWIN_INITIAL;
     cubic_state->recovery_sequence = 0;
     cubic_state->option_string = option_string;
@@ -182,10 +189,12 @@ static void cubic_enter_recovery(picoquic_cnx_t * cnx,
     uint64_t current_time)
 {
     cubic_state->recovery_sequence = picoquic_cc_get_sequence_number(cnx, path_x);
-
+    cubic_state->previous_start_of_epoch = cubic_state->start_of_epoch;
+    cubic_state->previous_alg_state = cubic_state->alg_state;
+    cubic_state->previous_ssthresh = cubic_state->ssthresh;
+    cubic_state->previous_cwin = path_x->cwin;
     /* Update similar to new reno, but different beta */
     cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
-
     /* Apply fast convergence */
     if (cubic_state->W_max < cubic_state->W_last_max) {
         cubic_state->W_last_max = cubic_state->W_max;
@@ -194,7 +203,6 @@ static void cubic_enter_recovery(picoquic_cnx_t * cnx,
     else {
         cubic_state->W_last_max = cubic_state->W_max;
     }
-
     /* Compute the new ssthresh */
     cubic_state->ssthresh = (uint64_t)(cubic_state->W_max * PICOQUIC_CUBIC_BETA_ECN * (double)path_x->send_mtu);
     if (cubic_state->ssthresh < PICOQUIC_CWIN_MINIMUM) {
@@ -235,7 +243,9 @@ static void cubic_enter_recovery(picoquic_cnx_t * cnx,
 }
 
 /* On spurious repeat notification, restore the previous congestion control.
- * Assume that K is still valid -- we only update it after exiting recovery.
+ * If the previous state was slow start, we get back to slow start with
+ * exactly the initial parameters. Otherwise,
+ * we assume that K is still valid -- we only update it after exiting recovery.
  * Set cwin to the value of W_max before the recovery event
  * Set W_max to W_max_last, i.e. the value before the recovery event
  * Set the epoch back to where it was, by computing the inverse of the
@@ -246,11 +256,20 @@ static void cubic_correct_spurious(picoquic_path_t* path_x,
 {
     if (cubic_state->ssthresh != UINT64_MAX) {
         cubic_state->W_max = cubic_state->W_last_max;
-        cubic_enter_avoidance(cubic_state, cubic_state->previous_start_of_epoch);
-        double W_cubic = cubic_W_cubic(cubic_state, current_time);
-        cubic_state->W_reno = W_cubic * (double)path_x->send_mtu;
-        cubic_state->ssthresh = (uint64_t)(cubic_state->W_max * PICOQUIC_CUBIC_BETA * (double)path_x->send_mtu);
-        path_x->cwin = (uint64_t)cubic_state->W_reno;
+        cubic_state->start_of_epoch = cubic_state->previous_start_of_epoch;
+        cubic_state->alg_state = cubic_state->previous_alg_state;
+        if (cubic_state->alg_state != picoquic_cubic_alg_slow_start) {
+            cubic_enter_avoidance(cubic_state, cubic_state->previous_start_of_epoch);
+            double W_cubic = cubic_W_cubic(cubic_state, current_time);
+            cubic_state->W_reno = W_cubic * (double)path_x->send_mtu;
+            cubic_state->ssthresh = (uint64_t)(cubic_state->W_max * PICOQUIC_CUBIC_BETA * (double)path_x->send_mtu);
+            path_x->cwin = (uint64_t)cubic_state->W_reno;
+        }
+        else {
+            cubic_state->ssthresh = cubic_state->previous_ssthresh;
+            path_x->cwin = cubic_state->previous_cwin;
+            cubic_state->W_reno = (double)cubic_state->previous_cwin;
+        }
     }
 }
 
@@ -271,7 +290,7 @@ static void cubic_notify(
 
     if (cubic_state != NULL) {
         switch (notification) {
-            /* RTT measurements will happen before acknowledgement is signaled */
+            /* RTT measurements will happen before acknowledgement is signalled */
             case picoquic_congestion_notification_acknowledgement:
                 switch (cubic_state->alg_state) {
                     case picoquic_cubic_alg_slow_start:
@@ -376,24 +395,22 @@ static void cubic_notify(
                                     cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
                                 /* RTT increased too much, get out of slow start! */
 
-                                if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){
-                                    double correction;
-                                    if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_SATELLITE_RTT) {
-                                        correction = (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
-                                    }
-                                    else {
-                                        correction = (double)PICOQUIC_TARGET_RENO_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
-                                    }
-                                    uint64_t base_window = (uint64_t)(correction * (double)path_x->cwin);
-                                    uint64_t delta_window = path_x->cwin - base_window;
-                                    path_x->cwin -= (delta_window / 2);
-                                }
-#if 1
-                                else {
-                                    /* In the general case, compensate for the growth of the window after the acknowledged packet was sent. */
-                                    path_x->cwin /= 2;
-                                }
-#endif
+                        if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){
+                            double correction;
+                            if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_SATELLITE_RTT) {
+                                correction = (double)PICOQUIC_TARGET_SATELLITE_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
+                            }
+                            else {
+                                correction = (double)PICOQUIC_TARGET_RENO_RTT / (double)cubic_state->rtt_filter.rtt_filtered_min;
+                            }
+                            uint64_t base_window = (uint64_t)(correction * (double)path_x->cwin);
+                            uint64_t delta_window = path_x->cwin - base_window;
+                            path_x->cwin -= (delta_window / 2);
+                        }
+                        else {
+                            /* In the general case, compensate for the growth of the window after the acknowledged packet was sent. */
+                            path_x->cwin /= 2;
+                        }
 
                                 cubic_state->ssthresh = path_x->cwin;
                                 cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
@@ -456,6 +473,7 @@ static void cubic_notify(
                 break;
             default:
                 break;
+
         }
 
         /* Compute pacing data */
@@ -500,7 +518,7 @@ static void dcubic_exit_slow_start(
 /*
  * Define delay-based Cubic, dcubic, and alternative congestion control protocol similar to Cubic but 
  * using delay measurements instead of reacting to packet losses. This is a quic hack, intended for
- * trials of lossy satellite networks.
+ * trials of a lossy satellite networks.
  */
 static void dcubic_notify(
     picoquic_cnx_t* cnx, picoquic_path_t* path_x,
@@ -569,7 +587,6 @@ static void dcubic_notify(
                             default:
                                 break;
                         }
-
                         break;
                     case picoquic_cubic_alg_recovery:
                         /* if in slow start, increase the window for long delay RTT */
