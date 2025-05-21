@@ -1710,6 +1710,9 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
                 case picoquic_cr_trigger_exit_recovery:
                     fprintf(f, "%s\"trigger\": \"exit_recovery\"", comma);
                 break;
+                case picoquic_cr_trigger_path_changed:
+                    fprintf(f, "%s\"trigger\": \"path_changed\"", comma);
+                break;
                 case picoquic_cr_trigger_undefined:
                 default:
                     fprintf(f, "%s\"trigger\": \"UNDEFINED\"", comma);

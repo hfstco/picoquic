@@ -2199,6 +2199,9 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
             case picoquic_cr_trigger_exit_recovery:
                 fprintf(F, "tigger: %s\n", "exit_recovery");
                 break;
+            case picoquic_cr_trigger_path_changed:
+                fprintf(F, "tigger: %s\n", "path_changed");
+                break;
             default:
                 /* ignore */
                 break;

@@ -124,7 +124,8 @@ typedef enum {
     picoquic_cr_trigger_last_unvalidated_packet_acknowledged,
     picoquic_cr_trigger_packet_loss,
     picoquic_cr_trigger_ECN_CE,
-    picoquic_cr_trigger_exit_recovery
+    picoquic_cr_trigger_exit_recovery,
+    picoquic_cr_trigger_path_changed
 } picoquic_cr_trigger_t;
 
 typedef enum {
