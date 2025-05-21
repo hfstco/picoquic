@@ -293,7 +293,7 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_
         because the window was not validated. The PipeSize at this point is
         equal to 29 + 34 = 66 packets. Assuming IW=10. The CWND is reset to
         Max(10,ps/2) = Max(10,66/2) = 33 packets. */
-    path_x->cwin = (cr_state->pipesize / 2 >= PICOQUIC_CWIN_INITIAL) ? cr_state->pipesize / 2 : PICOQUIC_CWIN_INITIAL;
+    path_x->cwin = (cr_state->pipesize / 2 >= PICOQUIC_CWIN_MINIMUM) ? cr_state->pipesize / 2 : PICOQUIC_CWIN_MINIMUM;
 
     /* Set last unvalidated packet if enter SAFE RETREAT in UNVAL and not already set when entering VALIDATING. */
     if (cr_state->last_unvalidated_packet == UINT64_MAX) {
