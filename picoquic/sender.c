@@ -3889,6 +3889,9 @@ int picoquic_program_app_wake_time(picoquic_cnx_t* cnx, uint64_t* next_wake_time
         SET_LAST_WAKE(cnx->quic, PICOQUIC_SENDER);
     }
     return ret;
+
+    fprintf(stdout, "program app_wake_time=%" PRIu64 "\n", cnx->app_wake_time);
+    fflush(stdout);
 }
 
 /* Prepare next packet to send, or nothing.. */
