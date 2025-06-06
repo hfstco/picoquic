@@ -147,6 +147,7 @@ void picoquic_cr_notify(
                     if (cr_state->saved_congestion_window != UINT64_MAX) {
                         cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
                         picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
+                        cnx->cwin_blocked = 0;
                     }
                     break;
                 case picoquic_cr_alg_unvalidated:
