@@ -1397,8 +1397,6 @@ void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, 
     picoquic_remove_cnx_from_wake_list(cnx);
     cnx->next_wake_time = next_time;
     picoquic_insert_cnx_by_wake_time(quic, cnx);
-    fprintf(stdout, "reinsert next_wake_time=%" PRIu64 "\n", cnx->next_wake_time);
-    fflush(stdout);
 }
 
 picoquic_cnx_t* picoquic_get_earliest_cnx_to_wake(picoquic_quic_t* quic, uint64_t max_wake_time)
@@ -4899,8 +4897,6 @@ void picoquic_set_app_wake_time(picoquic_cnx_t* cnx, uint64_t app_wake_time)
     if (cnx->app_wake_time != 0 && cnx->app_wake_time < cnx->next_wake_time) {
         picoquic_reinsert_by_wake_time(cnx->quic, cnx, app_wake_time);
     }
-    fprintf(stdout, "set app_wake_time to %" PRIu64 "\n", cnx->app_wake_time);
-    fflush(stdout);
 }
 
 /* Setting up version negotiation parameters */
