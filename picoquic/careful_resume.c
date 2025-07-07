@@ -145,7 +145,8 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_cwin_blocked:
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_reconnaissance:
-                    if (cr_state->saved_congestion_window != UINT64_MAX) {
+                    if (cr_state->saved_congestion_window != UINT64_MAX &&
+                        picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10) {
                         cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
                         picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                         /* Reset cwin blocked state. */
@@ -174,7 +175,8 @@ void picoquic_cr_notify(
                         current_time - cnx->start_time, cr_state->saved_congestion_window, cr_state->saved_rtt);
 
                     /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
-                    if (cr_state->saved_congestion_window != UINT64_MAX && path_x->bytes_in_transit >= path_x->cwin) {
+                    if (cr_state->saved_congestion_window != UINT64_MAX && path_x->bytes_in_transit >= path_x->cwin &&
+                        picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10) {
                         cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
                         picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
                     }
