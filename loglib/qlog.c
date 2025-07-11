@@ -1579,7 +1579,7 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
             fprintf(f, "\n");
         }
 
-        qlog_event_header(f, ctx, delta_time, path_id, "recovery", "careful_resume_phase_updated");
+        qlog_event_header(f, ctx, delta_time, path_id, "quic", "careful_resume_phase_updated");
 
         if (old_phase != new_phase) {
             if (old_phase != ctx->old) {
