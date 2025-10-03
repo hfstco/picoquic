@@ -56,12 +56,6 @@ picoquictest_sim_link_t* picoquictest_sim_link_create(double data_rate_in_gps,
         link->jitter_seed = 0xDEADBEEFBABAC001ull;
         link->jitter = 0;
         link->path_mtu = PICOQUIC_MAX_PACKET_SIZE;
-        link->red_drop_mask = 0;
-        link->red_queue_max = 0;
-        link->bucket_increase_per_microsec = 0;
-        link->bucket_max = 0;
-        link->bucket_current = 0;
-        link->bucket_arrival_last = current_time;
     }
 
     return link;
@@ -74,6 +68,10 @@ void picoquictest_sim_link_delete(picoquictest_sim_link_t* link)
     while ((packet = link->first_packet) != NULL) {
         link->first_packet = packet->next_packet;
         free(packet);
+    }
+
+    if (link->aqm_state != NULL) {
+        link->aqm_state->release(link->aqm_state, link);
     }
 
     free(link);
@@ -230,7 +228,7 @@ void picoquictest_sim_link_submit(picoquictest_sim_link_t* link, picoquictest_si
 {
     uint64_t queue_delay = (current_time > link->queue_time) ? 0 : link->queue_time - current_time;
     uint64_t transmit_time = ((link->picosec_per_byte * ((uint64_t)packet->length)) >> 20);
-    uint64_t should_drop = 0;
+    int should_drop = 0;
 
     if (transmit_time <= 0)
         transmit_time = 1;
@@ -246,38 +244,21 @@ void picoquictest_sim_link_submit(picoquictest_sim_link_t* link, picoquictest_si
         link->last_packet = packet;
         return;
     }
-    
-    if (link->bucket_increase_per_microsec > 0) {
-        /* Simulate a rate limiter based on classic leaky bucket algorithm */
-        uint64_t delta_microsec = current_time - link->bucket_arrival_last;
-        link->bucket_arrival_last = current_time;
-        link->bucket_current += ((double)delta_microsec) * link->bucket_increase_per_microsec;
-        if (link->bucket_current > (double)link->bucket_max) {
-            link->bucket_current = (double)link->bucket_max;
-        }
-        if (link->bucket_current > (double)packet->length) {
-            link->bucket_current -= (double)packet->length;
-        }
-        else {
-            should_drop = 1;
-        }
-    } else if (link->queue_delay_max > 0 && queue_delay >= link->queue_delay_max) {
-        if (link->red_drop_mask == 0 || queue_delay >= link->red_queue_max) {
-            should_drop = 1;
-        }
-        else {
-            should_drop = link->red_drop_mask & 1;
-            link->red_drop_mask >>= 1;
-            link->red_drop_mask |= (should_drop << 63);
-        }
+    if (link->aqm_state != NULL) {
+        link->aqm_state->submit(link->aqm_state, link, packet, current_time, &should_drop);
+    }
+    else if (link->queue_delay_max > 0 && queue_delay >= link->queue_delay_max) {
+        should_drop = 1;
     }
 
     if (!should_drop) {
         link->queue_time = current_time + queue_delay + transmit_time;
         /* TODO: proper simulation of marking policy */
+#if 0
         if (link->l4s_max > 0 && queue_delay >= link->l4s_max) {
             packet->ecn_mark = PICOQUIC_ECN_CE;
         }
+#endif
         if (packet->length > link->path_mtu || picoquictest_sim_link_testloss(link->loss_mask) != 0 ||
             link->is_switched_off || picoquictest_sim_link_simloss(link, current_time)) {
             link->packets_dropped++;

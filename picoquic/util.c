@@ -472,24 +472,37 @@ int picoquic_compare_addr(const struct sockaddr * expected, const struct sockadd
 
 int picoquic_compare_ip_addr(const struct sockaddr* expected, const struct sockaddr* actual)
 {
-    int ret = -1;
+    int ret = 0;
 
     if (expected->sa_family == actual->sa_family) {
-        if (expected->sa_family == AF_INET6) {
+        if (expected->sa_family == AF_UNSPEC) {
+            ret = 0;
+        }
+        else if (expected->sa_family == AF_INET6) {
             struct sockaddr_in6* ex = (struct sockaddr_in6*)expected;
             struct sockaddr_in6* ac = (struct sockaddr_in6*)actual;
 
             ret = memcmp(&ex->sin6_addr, &ac->sin6_addr, 16);
         }
-        else {
+        else if (expected->sa_family == AF_INET) {
             struct sockaddr_in* ex = (struct sockaddr_in*)expected;
             struct sockaddr_in* ac = (struct sockaddr_in*)actual;
+#if 1
+            ret = memcmp(&ex->sin_addr, &ac->sin_addr, 4);
+#else
 #ifdef _WINDOWS
-            ret = (ex->sin_addr.S_un.S_addr == ac->sin_addr.S_un.S_addr) ? 0 : -1;
+            ret = (ex->sin_addr.S_un.S_addr == ac->sin_addr.S_un.S_addr);
 #else
             ret = (ex->sin_addr.s_addr == ac->sin_addr.s_addr) ? 0 : -1;
 #endif
+#endif
         }
+        else {
+            ret = 0;
+        }
+    }
+    else {
+        ret = (expected->sa_family > actual->sa_family) ? 1 : -1;
     }
     return ret;
 }
@@ -504,9 +517,13 @@ uint16_t picoquic_get_addr_port(const struct sockaddr* addr)
 int picoquic_compare_addr(const struct sockaddr* expected, const struct sockaddr* actual)
 {
     int ret = picoquic_compare_ip_addr(expected, actual);
-    if (ret == 0 &&
-        picoquic_get_addr_port(expected) != picoquic_get_addr_port(actual)) {
-        ret = -1;
+    if (ret == 0 && (expected->sa_family == AF_INET6 || expected->sa_family)){
+        uint16_t p_ex = picoquic_get_addr_port(expected);
+        uint16_t p_ac = picoquic_get_addr_port(actual);
+
+        if (p_ex != p_ac) {
+            ret = (p_ex > p_ac) ? 1 : -1;
+        }
     }
     return ret;
 }
