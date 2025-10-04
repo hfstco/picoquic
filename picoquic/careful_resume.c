@@ -114,7 +114,6 @@ void picoquic_cr_notify(
         case picoquic_congestion_notification_repeat:
         case picoquic_congestion_notification_ecn_ec:
         case picoquic_congestion_notification_timeout:
-            fprintf(stdout, "packet #%" PRIu64 " sent at %" PRIu64 " lost. notification=%i \n", ack_state->lost_packet_number, ack_state->lost_packet_sent_time, notification);
             cr_state->trigger = (notification == picoquic_congestion_notification_ecn_ec) ? picoquic_cr_trigger_ECN_CE : picoquic_cr_trigger_packet_loss;
             switch (cr_state->alg_state) {
                 case picoquic_cr_alg_reconnaissance:
