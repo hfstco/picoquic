@@ -183,6 +183,20 @@ static const uint8_t* picoquic_log_reset_stream_frame(FILE* f, const uint8_t* by
     return bytes;
 }
 
+static const uint8_t* picoquic_log_reset_stream_at_frame(FILE* f, const uint8_t* bytes, const uint8_t* bytes_max)
+{
+    const uint8_t* bytes_begin = bytes;
+
+    bytes = picoquic_log_fixed_skip(bytes, bytes_max, 1);
+    bytes = picoquic_log_varint_skip(bytes, bytes_max);
+    bytes = picoquic_log_varint_skip(bytes, bytes_max);
+    bytes = picoquic_log_varint_skip(bytes, bytes_max);
+    bytes = picoquic_log_varint_skip(bytes, bytes_max);
+
+    picoquic_binlog_frame(f, bytes_begin, bytes);
+    return bytes;
+}
+
 static const uint8_t* picoquic_log_stop_sending_frame(FILE* f, const uint8_t* bytes, const uint8_t* bytes_max)
 {
     const uint8_t* bytes_begin = bytes;
@@ -577,6 +591,9 @@ void picoquic_binlog_frames(FILE * f, const uint8_t* bytes, size_t length)
         case picoquic_frame_type_reset_stream:
             bytes = picoquic_log_reset_stream_frame(f, bytes, bytes_max);
             break;
+        case picoquic_frame_type_reset_stream_at:
+            bytes = picoquic_log_reset_stream_at_frame(f, bytes, bytes_max);
+            break;
         case picoquic_frame_type_connection_close:
             bytes = picoquic_log_close_frame(f, bytes, bytes_max);
             break;
@@ -682,7 +699,7 @@ static uint64_t binlog_get_path_id(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 
 void binlog_pdu(FILE* f, const picoquic_connection_id_t* cid, int receiving, uint64_t current_time,
     const struct sockaddr* addr_peer, const struct sockaddr* addr_local, size_t packet_length,
-    uint64_t unique_path_id)
+    uint64_t unique_path_id, unsigned char ecn)
 {
     bytestream_buf stream_msg;
     bytestream* msg = bytestream_buf_init(&stream_msg, BYTESTREAM_MAX_BUFFER_SIZE);
@@ -695,6 +712,7 @@ void binlog_pdu(FILE* f, const picoquic_connection_id_t* cid, int receiving, uin
     bytewrite_vint(msg, packet_length);
     bytewrite_addr(msg, addr_local);
     bytewrite_vint(msg, unique_path_id);
+    bytewrite_int8(msg, ecn);
 
     uint8_t head[4] = { 0 };
     picoformat_32(head, (uint32_t)bytestream_length(msg));
@@ -705,11 +723,11 @@ void binlog_pdu(FILE* f, const picoquic_connection_id_t* cid, int receiving, uin
 
 static void binlog_pdu_ex(picoquic_cnx_t* cnx, int receiving, uint64_t current_time,
     const struct sockaddr* addr_peer, const struct sockaddr* addr_local, size_t packet_length,
-    uint64_t unique_path_id)
+    uint64_t unique_path_id, unsigned char ecn)
 {
     if (cnx != NULL && cnx->f_binlog != NULL && picoquic_cnx_is_still_logging(cnx)) {
         binlog_pdu(cnx->f_binlog, &cnx->initial_cnxid, receiving, current_time, addr_peer, addr_local, packet_length,
-            unique_path_id);
+            unique_path_id, ecn);
     }
 }
 

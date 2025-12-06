@@ -146,7 +146,8 @@ int picoquic_mark_active_stream(picoquic_cnx_t* cnx,
     if (ret == 0) {
         if (is_active) {
             /* The call only fails if the stream was closed or reset */
-            if (!stream->fin_requested && !stream->reset_requested &&
+            if (!stream->fin_requested && 
+                (!stream->reset_requested || picoquic_check_sack_list(&stream->sack_list, 0, stream->reliable_size) == 0) &&
                 cnx->callback_fn != NULL) {
                 stream->app_stream_ctx = app_stream_ctx;
                 if (!stream->is_active) {
@@ -352,31 +353,38 @@ void picoquic_reset_stream_ctx(picoquic_cnx_t* cnx, uint64_t stream_id)
     }
 }
 
-int picoquic_reset_stream(picoquic_cnx_t* cnx,
-    uint64_t stream_id, uint64_t local_stream_error)
+int picoquic_reset_stream_at(picoquic_cnx_t* cnx,
+    uint64_t stream_id, uint64_t local_stream_error, uint64_t reliable_size)
 {
     int ret = 0;
     picoquic_stream_head_t* stream = NULL;
 
-    stream = picoquic_find_stream(cnx, stream_id);
-
-    if (stream == NULL) {
+    if (reliable_size > 0 && !cnx->is_reset_stream_at_enabled) {
+        ret = PICOQUIC_ERROR_ILLEGAL_TRANSPORT_EXTENSION;
+    }
+    else if ((stream = picoquic_find_stream(cnx, stream_id)) == NULL) {
         ret = PICOQUIC_ERROR_INVALID_STREAM_ID;
     }
     else {
         stream->app_stream_ctx = NULL;
-        if (stream->fin_sent && picoquic_check_sack_list(&stream->sack_list, 0, stream->fin_offset) == 0){
+        if (stream->fin_sent && picoquic_check_sack_list(&stream->sack_list, 0, stream->fin_offset) == 0) {
             ret = PICOQUIC_ERROR_STREAM_ALREADY_CLOSED;
         }
         else if (!stream->reset_requested) {
             stream->local_error = local_stream_error;
             stream->reset_requested = 1;
+            stream->reliable_size = reliable_size;
         }
     }
 
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, picoquic_get_quic_time(cnx->quic));
 
     return ret;
+}
+int picoquic_reset_stream(picoquic_cnx_t* cnx,
+    uint64_t stream_id, uint64_t local_stream_error)
+{
+    return picoquic_reset_stream_at(cnx, stream_id, local_stream_error, 0);
 }
 
 uint64_t picoquic_get_next_local_stream_id(picoquic_cnx_t* cnx, int is_unidir)
@@ -1809,6 +1817,7 @@ void picoquic_implicit_handshake_ack(picoquic_cnx_t* cnx, picoquic_packet_contex
          * before the initial timer. */
         if (old_path != NULL && cnx->congestion_alg != NULL && p->send_time < cnx->start_time + PICOQUIC_INITIAL_RTT) {
             picoquic_per_ack_state_t ack_state = { 0 };
+            ack_state.pc = pc;
             ack_state.rtt_measurement = old_path->rtt_sample;
             ack_state.nb_bytes_acknowledged = p->length;
             old_path->delivered += p->length;
@@ -3098,6 +3107,7 @@ int picoquic_prepare_packet_almost_ready(picoquic_cnx_t* cnx, picoquic_path_t* p
                 length = bytes_next - bytes;
                 if (path_x->cwin < path_x->bytes_in_transit) {
                     picoquic_per_ack_state_t ack_state = { 0 };
+                    ack_state.pc = pc;
                     cnx->cwin_blocked = 1;
                     path_x->last_cwin_blocked_time = current_time;
                     if (cnx->congestion_alg != NULL) {
@@ -3463,7 +3473,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t* path_x, 
                         path_x->last_cwin_blocked_time = current_time;
                         if (cnx->congestion_alg != NULL) {
                             picoquic_per_ack_state_t ack_state = { 0 };
-
+                            ack_state.pc = pc;
                             cnx->congestion_alg->alg_notify(cnx, path_x,
                                 picoquic_congestion_notification_cwin_blocked,
                                 &ack_state, current_time);
@@ -4115,7 +4125,7 @@ int picoquic_prepare_packet_ex(picoquic_cnx_t* cnx,
                 if (p_addr_to != NULL && p_addr_from != NULL) {
                     picoquic_log_pdu(cnx, 0, current_time,
                         (struct sockaddr*)p_addr_to, (struct sockaddr*)p_addr_from, coalesced_packet_size,
-                        path_x->unique_path_id);
+                        path_x->unique_path_id, 0);
                 }
             }
 

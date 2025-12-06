@@ -579,7 +579,7 @@ void picoquic_seed_ticket(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
         uint64_t target_cwin = path_x->cwin;
 
         if (path_x->bandwidth_estimate_max > 0) {
-            target_cwin = (path_x->bandwidth_estimate_max * path_x->rtt_min) / 1000000ull;
+            target_cwin = PICOQUIC_BYTES_FROM_RATE(path_x->rtt_min, path_x->bandwidth_estimate_max);
         }
         picoquic_get_ip_addr((struct sockaddr*) & path_x->first_tuple->peer_addr, &ip_addr, &ip_addr_length);
         fprintf(stdout, "picoquic_seed_ticket(), cwnd=%" PRIu64 ", rtt=%" PRIu64 "\n", target_cwin, path_x->rtt_min);

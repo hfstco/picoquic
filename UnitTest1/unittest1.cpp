@@ -1991,6 +1991,25 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+
+        TEST_METHOD(reset_stream_at_basic) {
+            int ret = reset_stream_at_basic_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(reset_stream_at_limit) {
+            int ret = reset_stream_at_limit_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(reset_stream_at_loss) {
+            int ret = reset_stream_at_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(initial_pto)
         {
             int ret = initial_pto_test();
@@ -2054,9 +2073,30 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(c4)
+        {
+            int ret = c4_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(c4_jitter)
+        {
+            int ret = c4_jitter_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(cc_compete_cubic2)
         {
             int ret = cc_compete_cubic2_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(cc_compete_c4c4)
+        {
+            int ret = cc_compete_c4c4_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -2189,6 +2229,13 @@ namespace UnitTest1
         TEST_METHOD(bbr_long)
         {
             int ret = bbr_long_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(c4_long)
+        {
+            int ret = c4_long_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -2954,6 +3001,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(multipath_break_both) {
+            int ret = multipath_break_both_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(multipath_qlog) {
             int ret = multipath_qlog_test();
 
@@ -3278,6 +3331,11 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(dualq_aqm) {
+            int ret = dualq_aqm_test();
+
+            Assert::AreEqual(ret, 0);
+        }
         TEST_METHOD(ech_config) {
             int ret = ech_config_test();
 
@@ -3362,6 +3420,18 @@ namespace UnitTest1
 
         TEST_METHOD(picowt_baton_random) {
             int ret = picowt_baton_random_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(picowt_baton_reset) {
+            int ret = picowt_baton_reset_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(picowt_baton_krome) {
+            int ret = picowt_baton_krome_test();
 
             Assert::AreEqual(ret, 0);
         }
