@@ -90,6 +90,17 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
 /* The BDP seed is validated upon receiving the first RTT measurement */
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
+#if 1
+    /* Seed from ENV variables. DEBUG only. */
+    if (getenv("PREVIOUS_RTT") && getenv("PREVIOUS_CWND_BYTES")) {
+        uint8_t* ip_addr;
+        uint8_t ip_addr_length;
+        picoquic_get_ip_addr((struct sockaddr*)&path_x->first_tuple->peer_addr, &ip_addr, &ip_addr_length);
+        picoquic_seed_bandwidth(cnx, strtoull(getenv("PREVIOUS_RTT"), NULL, 10), strtoull(getenv("PREVIOUS_CWND_BYTES"), NULL, 10), ip_addr, ip_addr_length);
+        fprintf(stdout, "set CAREFULE RESUME variables forcefully.\nPREVIOUS_CWND_BYTES=%s, PREVIOUS_RTT=%s\n", getenv("PREVIOUS_CWND_BYTES"), getenv("PREVIOUS_RTT"));
+    }
+#endif
+
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
         !cnx->cwin_notified_from_seed){
         uint64_t rtt_margin = rtt_sample / 4;

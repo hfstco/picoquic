@@ -114,6 +114,65 @@ uint64_t picoquic_cc_update_cwin_for_long_rtt(picoquic_path_t * path_x);
  * its entire state in memory.
  */
 
+/* Careful Resume. */
+
+#define PICOQUIC_CR_BETA 0.5
+#define PICOQUIC_CR_ACTIVE (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance || cubic_state->cr_state.alg_state == picoquic_cr_alg_validating || cubic_state->cr_state.alg_state == picoquic_cr_alg_normal)
+
+typedef enum {
+    picoquic_cr_trigger_cwnd_limited = 0,
+    picoquic_cr_trigger_rtt_not_validated,
+    picoquic_cr_trigger_last_unvalidated_packet_sent,
+    picoquic_cr_trigger_first_unvalidated_packet_acknowledged,
+    picoquic_cr_trigger_rtt_exceeded,
+    picoquic_cr_trigger_rate_limited,
+    picoquic_cr_trigger_last_unvalidated_packet_acknowledged,
+    picoquic_cr_trigger_packet_loss,
+    picoquic_cr_trigger_ECN_CE,
+    picoquic_cr_trigger_exit_recovery
+} picoquic_cr_trigger_t;
+
+typedef enum {
+    picoquic_cr_alg_reconnaissance = 0,
+    picoquic_cr_alg_unvalidated,
+    picoquic_cr_alg_validating,
+    picoquic_cr_alg_safe_retreat,
+    picoquic_cr_alg_normal
+} picoquic_cr_alg_state_t;
+
+typedef struct st_picoquic_cr_state_t {
+    uint64_t start_of_epoch; /* start timestamp of current state in us */
+    uint64_t previous_start_of_epoch; /* start timestamp of previous state in us */
+
+    picoquic_cr_alg_state_t previous_alg_state; /* previous state of careful resume. only for qlog and logging. */
+    picoquic_cr_alg_state_t alg_state; /* current state of the careful resume algorithm */
+
+    uint64_t pipesize; /* pipesize in bytes */
+    uint64_t first_unvalidated_packet;
+    uint64_t last_unvalidated_packet;
+
+    uint64_t saved_congestion_window; /* observed CWND from previous connection in bytes */
+
+    picoquic_cr_trigger_t trigger; /* last trigger triggered. */
+} picoquic_cr_state_t;
+
+void picoquic_cr_reset(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
+uint64_t picoquic_cr_acknowledgement(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+                                 picoquic_per_ack_state_t* ack_state, uint64_t current_time);
+void picoquic_cr_congestion(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+                                         picoquic_congestion_notification_t notification, uint64_t current_time);
+void picoquic_cr_cwin_blocked(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+                                      picoquic_per_ack_state_t* ack_state, uint64_t current_time);
+void picoquic_cr_seed_cwin(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
+                              uint64_t saved_congestion_window, uint64_t current_time);
+
+void picoquic_cr_enter_reconnaissance(picoquic_cr_state_t* cr_state, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+
+
 typedef enum {
     picoquic_newreno_alg_slow_start = 0,
     picoquic_newreno_alg_congestion_avoidance
