@@ -2127,19 +2127,19 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         /* ? old: CarefulResumePhase */
         if (cr_state->previous_alg_state != cr_state->alg_state) {
             switch (cr_state->previous_alg_state) {
-                case picoquic_cr_alg_reconnaissance:
+                case picoquic_careful_resume_alg_reconnaissance:
                     fprintf(F, "old: %s,", "reconnaissance");
                 break;
-                case picoquic_cr_alg_unvalidated:
+                case picoquic_careful_resume_alg_unvalidated:
                     fprintf(F, "old: %s,", "unvalidated");
                 break;
-                case picoquic_cr_alg_validating:
+                case picoquic_careful_resume_alg_validating:
                     fprintf(F, "old: %s,", "validating");
                 break;
-                case picoquic_cr_alg_normal:
+                case picoquic_careful_resume_alg_normal:
                     fprintf(F, "old: %s,", "normal");
                 break;
-                case picoquic_cr_alg_safe_retreat:
+                case picoquic_careful_resume_alg_failed:
                     fprintf(F, "old: %s,", "safe_retreat");
                 break;
                 default:
@@ -2150,19 +2150,19 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
 
         /* new: CarefulResumePhase */
         switch (cr_state->alg_state) {
-            case picoquic_cr_alg_reconnaissance:
+            case picoquic_careful_resume_alg_reconnaissance:
                 fprintf(F, "new: %s,", "reconnaissance");
                 break;
-            case picoquic_cr_alg_unvalidated:
+            case picoquic_careful_resume_alg_unvalidated:
                 fprintf(F, "new: %s,", "unvalidated");
                 break;
-            case picoquic_cr_alg_validating:
+            case picoquic_careful_resume_alg_validating:
                 fprintf(F, "new: %s,", "validating");
                 break;
-            case picoquic_cr_alg_normal:
+            case picoquic_careful_resume_alg_normal:
                 fprintf(F, "new: %s,", "normal");
                 break;
-            case picoquic_cr_alg_safe_retreat:
+            case picoquic_careful_resume_alg_failed:
                 fprintf(F, "new: %s,", "safe_retreat");
                 break;
             default:
@@ -2183,7 +2183,7 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
         fprintf(F, "first_unvalidated_packet: %d,", (int)cr_state->first_unvalidated_packet);
         fprintf(F, "last_unvalidated_packet: %d,", (int)cr_state->last_unvalidated_packet);
         fprintf(F, "congestion_window: %d,", (int)path_x->cwin);
-        fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
+        //fprintf(F, "ssthresh: %d,", (int)cr_state->ssthresh);
 
         /* CarefulResumeRestoredParameters = {
          *      saved_congestion_window: uint32,
@@ -2209,34 +2209,34 @@ static void textlog_cr_state(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time
          *      ; for the Normal phase 1 RTT after a congestion event
          *      "exit_recovery" */
         switch (cr_state->trigger) {
-            case picoquic_cr_trigger_cwnd_limited:
+            case picoquic_careful_resume_trigger_connection_timeout:
                 fprintf(F, "tigger: %s\n", "congestion_window_limited");
                 break;
-            case picoquic_cr_trigger_rtt_not_validated:
+            case picoquic_careful_resume_trigger_rtt_not_validated:
                 fprintf(F, "tigger: %s\n", "rtt_not_validated");
                 break;
-            case picoquic_cr_trigger_first_unvalidated_packet_acknowledged:
+            case picoquic_careful_resume_trigger_idle_timeout:
                 fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_first_unvalidated_packet_acknowledged");
                 break;
-            case picoquic_cr_trigger_rtt_exceeded:
+            case picoquic_careful_resume_trigger_rtt_exceeded:
                 fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_rtt_exceeded");
                 break;
-            case picoquic_cr_trigger_rate_limited:
+            case picoquic_careful_resume_trigger_generic_event:
                 fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_rate_limited");
                 break;
-            case picoquic_cr_trigger_last_unvalidated_packet_acknowledged:
+            case picoquic_careful_resume_trigger_last_unvalidated_packet_acknowledged:
                 fprintf(F, "tigger: %s\n", "picoquic_cr_trigger_last_unvalidated_packet_acknowledged");
                 break;
-            case picoquic_cr_trigger_packet_loss:
+            case picoquic_careful_resume_trigger_packet_loss:
                 fprintf(F, "tigger: %s\n", "packet_loss");
                 break;
-            case picoquic_cr_trigger_ECN_CE:
+            case picoquic_careful_resume_trigger_ECN_CE:
                 fprintf(F, "tigger: %s\n", "ECN_CE");
                 break;
-            case picoquic_cr_trigger_exit_recovery:
+            case picoquic_careful_resume_trigger_exit_recovery:
                 fprintf(F, "tigger: %s\n", "exit_recovery");
                 break;
-            case picoquic_cr_trigger_path_changed:
+            case picoquic_careful_resume_trigger_path_changed:
                 fprintf(F, "tigger: %s\n", "path_changed");
                 break;
             default:

@@ -27,7 +27,6 @@
 
 void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
-    memset(&cubic_state->cr_state, 0, sizeof(picoquic_cr_state_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
     path_x->cwin = PICOQUIC_CWIN_INITIAL;
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
@@ -41,6 +40,9 @@ void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, u
     cubic_state->previous_ssthresh = UINT64_MAX;
     cubic_state->W_reno = PICOQUIC_CWIN_INITIAL;
     cubic_state->recovery_sequence = 0;
+
+    /* Careful Resume. */
+    picoquic_careful_resume_reset(&cubic_state->cr_state, path_x, current_time);
 }
 
 void cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const* option_string, uint64_t current_time)
@@ -54,7 +56,7 @@ void cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const* optio
     path_x->congestion_alg_state = (void*)cubic_state;
     if (cubic_state != NULL) {
         cubic_reset(cubic_state, path_x, current_time);
-        picoquic_cr_reset(&cubic_state->cr_state, cnx, path_x, current_time);
+        picoquic_careful_resume_reset(&cubic_state->cr_state, path_x, current_time);
     }
 }
 
@@ -232,31 +234,21 @@ void cubic_notify(
             /* RTT measurements will happen before acknowledgement is signalled */
             case picoquic_congestion_notification_acknowledgement:
                 switch (cubic_state->alg_state) {
-                    case picoquic_cubic_alg_slow_start:
+                case picoquic_cubic_alg_slow_start:
+                    if (PICOQUIC_CAREFUL_RESUME_LOCKED)
+                    {
                         if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                            if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
-                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_validating ||
-                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
-                                /* Increase cwin based on bandwidth estimation. */
-                                //path_x->cwin = picoquic_cc_update_target_cwin_estimation(path_x);
+                            /* Increase cwin based on bandwidth estimation. */
+                            //path_x->cwin = picoquic_cc_update_target_cwin_estimation(path_x);
 
-                                path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, 0);
+                            path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, 0);
 
-                                /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
-                                if (path_x->cwin >= cubic_state->ssthresh) {
-                                    cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
-                                    path_x->is_ssthresh_initialized = 1;
-                                    cubic_enter_avoidance(cubic_state, current_time);
-                                }
+                            /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                            if (path_x->cwin >= cubic_state->ssthresh) {
+                                cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
+                                path_x->is_ssthresh_initialized = 1;
+                                cubic_enter_avoidance(cubic_state, current_time);
                             }
-                        }
-
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        if (cubic_state->cr_state.ssthresh != UINT64_MAX) {
-                            path_x->is_ssthresh_initialized = 1;
-                            cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.ssthresh = UINT64_MAX;
                         }
 
                         /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
@@ -267,79 +259,59 @@ void cubic_notify(
                             path_x->is_ssthresh_initialized = 1;
                             cubic_enter_avoidance(cubic_state, current_time);
                         }
+                    }
 
-                        break;
+                    /* Careful Resume. */
+                    uint64_t sshthresh = picoquic_careful_resume_acknowledgement(&cubic_state->cr_state, cnx, path_x, ack_state, current_time);
+                    if (sshthresh != UINT64_MAX) {
+                        path_x->is_ssthresh_initialized = 1;
+                        cubic_state->ssthresh = sshthresh;
+                    }
+
+                    break;
                     /* TODO discuss
                      * picoquic_cubic_alg_recovery is not entered anyway
                      */
-                    case picoquic_cubic_alg_recovery:
-                        if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
-                               cubic_state->cr_state.alg_state == picoquic_cr_alg_validating ||
-                               cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
-                            /* exit recovery, move to CA or SS, depending on CWIN */
-                            cubic_state->alg_state = picoquic_cubic_alg_slow_start;
-                            path_x->cwin += ack_state->nb_bytes_acknowledged;
-                        }
-
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        if (cubic_state->cr_state.ssthresh != UINT64_MAX) {
-                            path_x->is_ssthresh_initialized = 1;
-                            cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.ssthresh = UINT64_MAX;
-                        }
+                case picoquic_cubic_alg_recovery:
+                    {
+                        /* exit recovery, move to CA or SS, depending on CWIN */
+                        cubic_state->alg_state = picoquic_cubic_alg_slow_start;
+                        path_x->cwin += ack_state->nb_bytes_acknowledged;
 
                         /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                         if (path_x->cwin >= cubic_state->ssthresh) {
                             cubic_state->alg_state = picoquic_cubic_alg_congestion_avoidance;
                         }
-                        break;
-                    case picoquic_cubic_alg_congestion_avoidance:
+                    }
+                    break;
+                case picoquic_cubic_alg_congestion_avoidance:
+                    {
                         if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
-                            /* +------+---------+---------+------------+-----------+------------+
-                             * |Phase |Normal   |Recon.   |Unvalidated |Validating |Safe Retreat|
-                             * +------+---------+---------+------------+-----------+------------+
-                             * |CWND: |When in  |CWND     |CWND is not |CWND can   |CWND is not |
-                             * |      |observe, |increases|increased   |increase   |increased   |
-                             * |      |measure  |using SS |            |using SS   |            |
-                             * |      |sav_cwnd |         |            |           |            |
-                             * +------+---------+---------+------------+-----------+------------+
-                             */
-                            if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
-                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_validating ||
-                                    cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
-                                double W_cubic;
-                                uint64_t win_cubic;
-                                /* Protection against limited senders. */
-                                if (cubic_state->start_of_epoch < path_x->last_sender_limited_time) {
-                                    cubic_state->start_of_epoch = path_x->last_sender_limited_time;
-                                }
-                                /* Compute the cubic formula */
-                                W_cubic = cubic_W_cubic(cubic_state, current_time);
-                                win_cubic = (uint64_t)(W_cubic * (double)path_x->send_mtu);
-                                /* Also compute the Reno formula */
-                                cubic_state->W_reno += ((double)ack_state->nb_bytes_acknowledged) * ((double)path_x->send_mtu) / cubic_state->W_reno;
+                            double W_cubic;
+                            uint64_t win_cubic;
+                            /* Protection against limited senders. */
+                            if (cubic_state->start_of_epoch < path_x->last_sender_limited_time) {
+                                cubic_state->start_of_epoch = path_x->last_sender_limited_time;
+                            }
+                            /* Compute the cubic formula */
+                            W_cubic = cubic_W_cubic(cubic_state, current_time);
+                            win_cubic = (uint64_t)(W_cubic * (double)path_x->send_mtu);
+                            /* Also compute the Reno formula */
+                            cubic_state->W_reno += ((double)ack_state->nb_bytes_acknowledged) * ((double)path_x->send_mtu) / cubic_state->W_reno;
 
-                                /* Pick the largest */
-                                if ((double)win_cubic > cubic_state->W_reno) {
-                                    /* if cubic is larger than threshold, switch to cubic mode */
-                                    path_x->cwin = win_cubic;
-                                }
-                                else {
-                                    path_x->cwin = (uint64_t)cubic_state->W_reno;
-                                }
+                            /* Pick the largest */
+                            if ((double)win_cubic > cubic_state->W_reno) {
+                                /* if cubic is larger than threshold, switch to cubic mode */
+                                path_x->cwin = win_cubic;
+                            }
+                            else {
+                                path_x->cwin = (uint64_t)cubic_state->W_reno;
                             }
                         }
-
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        if (cubic_state->cr_state.ssthresh != UINT64_MAX) {
-                            path_x->is_ssthresh_initialized = 1;
-                            cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.ssthresh = UINT64_MAX;
-                        }
-                        break;
+                    }
+                    break;
                 }
+
                 break;
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_timeout:
@@ -357,13 +329,11 @@ void cubic_notify(
                             cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
                         }
 
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        if (cubic_state->cr_state.ssthresh != UINT64_MAX) {
-                            path_x->is_ssthresh_initialized = 1;
-                            cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.ssthresh = UINT64_MAX;
+                        /* Careful Resume. */
+                        if (picoquic_cc_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD)) {
+                            picoquic_careful_resume_congestion(&cubic_state->cr_state, cnx, path_x, notification, current_time);
                         }
+
                         break;
                     case picoquic_cubic_alg_recovery:
                     case picoquic_cubic_alg_congestion_avoidance:
@@ -373,36 +343,22 @@ void cubic_notify(
                         if (ack_state->lost_packet_number >= cubic_state->recovery_sequence &&
                             (notification == picoquic_congestion_notification_ecn_ec ||
                                 picoquic_cc_hystart_loss_test(&cubic_state->rtt_filter, notification, ack_state->lost_packet_number, PICOQUIC_SMOOTHED_LOSS_THRESHOLD))) {
-                            if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
-                                cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
-                                //TODO path_x->is_ssthresh_initialized = 1;
-                                /* Re-enter recovery */
-                                cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
-                            }
+                            //TODO path_x->is_ssthresh_initialized = 1;
+                            /* Re-enter recovery */
+                            cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
                         }
-
-                        /* Nofify careful resume. */
-                        picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
-                        if (cubic_state->cr_state.ssthresh != UINT64_MAX) {
-                            path_x->is_ssthresh_initialized = 1;
-                            cubic_state->ssthresh = cubic_state->cr_state.ssthresh;
-                            cubic_state->cr_state.ssthresh = UINT64_MAX;
-                        }
-                        break;
                 }
+
                 break;
             case picoquic_congestion_notification_spurious_repeat:
                 /* Reset CWIN based on ssthresh, not based on current value. */
                 cubic_correct_spurious(path_x, cubic_state, current_time);
-
-                /* Nofify careful resume. */
-                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                 break;
             case picoquic_congestion_notification_rtt_measurement:
                 if (cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
                     cubic_state->ssthresh == UINT64_MAX) {
-                    if (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance ||
-                        cubic_state->cr_state.alg_state == picoquic_cr_alg_normal) {
+                    if (cubic_state->cr_state.alg_state == picoquic_careful_resume_alg_reconnaissance ||
+                        cubic_state->cr_state.alg_state == picoquic_careful_resume_alg_normal) {
                         /* HyStart. */
                         /* Using RTT increases as signal to get out of initial slow start */
                         if (picoquic_cc_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
@@ -446,26 +402,20 @@ void cubic_notify(
                         }
                     }
                 }
-
-                /* Nofify careful resume. */
-                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                 break;
             case picoquic_congestion_notification_cwin_blocked:
-                /* Nofify careful resume. */
-                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
+                /* Careful Resume. */
+                picoquic_careful_resume_cwin_blocked(&cubic_state->cr_state, cnx, path_x, ack_state, current_time);
                 break;
             case picoquic_congestion_notification_seed_cwin:
-                /* Nofify careful resume. */
-                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
+                /* Careful Resume. */
+                picoquic_careful_resume_seed_cwin(&cubic_state->cr_state, cnx, path_x, ack_state, current_time);
                 break;
             /*
              * cover cubic_reset().
              */
             case picoquic_congestion_notification_reset:
                 cubic_reset(cubic_state, path_x, current_time);
-
-                /* Nofify careful resume. */
-                picoquic_cr_notify(&cubic_state->cr_state, cnx, path_x, notification, ack_state, current_time);
                 break;
             default:
                 break;

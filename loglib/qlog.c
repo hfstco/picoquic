@@ -1605,7 +1605,7 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
     ret |= byteread_vint(s, &first_unvalidated_packet);
     ret |= byteread_vint(s, &last_unvalidated_packet);
     ret |= byteread_vint(s, &congestion_window);
-    ret |= byteread_vint(s, &ssthresh);
+    //ret |= byteread_vint(s, &ssthresh);
 
     ret |= byteread_vint(s, &saved_congestion_window);
     ret |= byteread_vint(s, &saved_rtt);
@@ -1725,40 +1725,40 @@ int qlog_cr_update(uint64_t time, uint64_t path_id, bytestream* s, void* ptr)
 
         if (trigger != ctx->trigger) {
             switch (trigger) {
-                case picoquic_cr_trigger_cwnd_limited:
+                case picoquic_careful_resume_trigger_connection_timeout:
                     fprintf(f, "%s\"trigger\": \"cwnd_limited\"", comma);
                 break;
-                case picoquic_cr_trigger_rtt_not_validated:
+                case picoquic_careful_resume_trigger_rtt_not_validated:
                     fprintf(f, "%s\"trigger\": \"rtt_not_validated\"", comma);
                 break;
-                case picoquic_cr_trigger_last_unvalidated_packet_sent:
+                case picoquic_careful_resume_trigger_last_unvalidated_packet_sent:
                     fprintf(f, "%s\"trigger\": \"last_unvalidated_packet_sent\"", comma);
                     break;
-                case picoquic_cr_trigger_first_unvalidated_packet_acknowledged:
+                case picoquic_careful_resume_trigger_idle_timeout:
                     fprintf(f, "%s\"trigger\": \"first_unvalidated_packet_acknowledged\"", comma);
                 break;
-                case picoquic_cr_trigger_rtt_exceeded:
+                case picoquic_careful_resume_trigger_rtt_exceeded:
                     fprintf(f, "%s\"trigger\": \"rtt_exceeded\"", comma);
                 break;
-                case picoquic_cr_trigger_rate_limited:
+                case picoquic_careful_resume_trigger_generic_event:
                     fprintf(f, "%s\"trigger\": \"rate_limited\"", comma);
                 break;
-                case picoquic_cr_trigger_last_unvalidated_packet_acknowledged:
+                case picoquic_careful_resume_trigger_last_unvalidated_packet_acknowledged:
                     fprintf(f, "%s\"trigger\": \"last_unvalidated_packet_acknowledged\"", comma);
                 break;
-                case picoquic_cr_trigger_packet_loss:
+                case picoquic_careful_resume_trigger_packet_loss:
                     fprintf(f, "%s\"trigger\": \"packet_loss\"", comma);
                 break;
-                case picoquic_cr_trigger_ECN_CE:
+                case picoquic_careful_resume_trigger_ECN_CE:
                     fprintf(f, "%s\"trigger\": \"ECN_CE\"", comma);
                 break;
-                case picoquic_cr_trigger_exit_recovery:
+                case picoquic_careful_resume_trigger_exit_recovery:
                     fprintf(f, "%s\"trigger\": \"exit_recovery\"", comma);
                 break;
-                case picoquic_cr_trigger_path_changed:
+                case picoquic_careful_resume_trigger_path_changed:
                     fprintf(f, "%s\"trigger\": \"path_changed\"", comma);
                 break;
-                case picoquic_cr_trigger_undefined:
+                case picoquic_careful_resume_trigger_undefined:
                 default:
                     fprintf(f, "%s\"trigger\": \"UNDEFINED\"", comma);
                 break;
