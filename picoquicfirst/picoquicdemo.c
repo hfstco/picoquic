@@ -316,7 +316,7 @@ int quic_server(const char* server_name, picoquic_quic_config_t * config, int ju
             else {
                 picoquic_set_key_log_file_from_env(qserver);
 
-                picoquic_set_alpn_select_fn(qserver, picoquic_demo_server_callback_select_alpn);
+                picoquic_set_alpn_select_fn_v2(qserver, picoquic_demo_server_callback_select_alpn);
 
                 picoquic_use_unique_log_names(qserver, 1);
 
@@ -441,7 +441,7 @@ char * picoquic_strsep(char **stringp, const char *delim)
 }
 
 /*
- * mp_config is consisted with src_if and alt_ip, seperated by "/" and ","
+ * mp_config is consisted of src_if and alt_ip, seperated by "/" and ","
  * e.g. 10.0.0.2/3,10.0.0.3/4,10.0.0.4/5
  * where src_if is an int list, and alt_ip is a string list.
  * alt_ip is the ip of the alternative path

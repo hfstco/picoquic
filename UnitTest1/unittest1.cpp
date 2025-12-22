@@ -787,6 +787,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(transport_param_default) {
+            int ret = transport_param_default_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(stream_rank)
         {
             int ret = stream_rank_test();
@@ -1382,6 +1388,13 @@ namespace UnitTest1
           Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(client_auth_25519)
+        {
+          int ret = request_client_authentication_25519_test();
+
+          Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(virtual_time)
         {
             int ret = virtual_time_test();
@@ -1562,7 +1575,13 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+#if 0
+        TEST_METHOD(zero_rtt_ech) {
+            int ret = zero_rtt_ech_test();
 
+            Assert::AreEqual(ret, 0);
+        }
+#endif
         TEST_METHOD(cnxid_transmit)
         {
             int ret = transmit_cnxid_test();

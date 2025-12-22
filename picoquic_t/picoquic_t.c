@@ -157,6 +157,7 @@ static const picoquic_test_def_t test_table[] = {
     { "connection_drop", connection_drop_test },
     { "vn_tp", vn_tp_test },
     { "vn_compat", vn_compat_test },
+    { "transport_param_default", transport_param_default_test },
     { "stream_rank", stream_rank_test },
     { "provide_stream_buffer", provide_stream_buffer_test },
     { "transport_param", transport_param_test },
@@ -259,6 +260,9 @@ static const picoquic_test_def_t test_table[] = {
     { "zero_rtt_many_losses", zero_rtt_many_losses_test },
     { "zero_rtt_long", zero_rtt_long_test },
     { "zero_rtt_delay", zero_rtt_delay_test },
+#if 0
+    { "zero_rtt_ech", zero_rtt_ech_test },
+#endif
     { "random_tester", random_tester_test},
     { "random_gauss", random_gauss_test},
     { "random_public_tester", random_public_tester_test},
@@ -432,6 +436,7 @@ static const picoquic_test_def_t test_table[] = {
     { "cert_verify_rsa", cert_verify_rsa_test },
     { "cid_quiescence", cid_quiescence_test },
     { "client_auth", request_client_authentication_test },
+    { "client_auth_25519", request_client_authentication_25519_test },
     { "client_cert_callback", set_verify_certificate_callback_test },
     { "mediatest_video", mediatest_video_test },
     { "mediatest_video_audio", mediatest_video_audio_test },
