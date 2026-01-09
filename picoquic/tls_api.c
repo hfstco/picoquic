@@ -1137,6 +1137,11 @@ int picoquic_server_encrypt_ticket_call_back(ptls_encrypt_ticket_t* encrypt_tick
                 ret = -1;
                 picoquic_log_app_message(quic->cnx_in_progress, "%s",
                     "Session ticket could not be decrypted");
+#if 1
+                fprintf(stdout, "Session ticket could not be decrypted.\n");
+                //fflush(stdout);
+#endif
+
             } else {
                 /* decode and verify the version number */
                 uint32_t version_number = PICOPARSE_32(dst->base + dst->off + decrypted - 4);

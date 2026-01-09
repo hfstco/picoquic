@@ -152,6 +152,13 @@ static int server_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb
                 ret = PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }
         }
+
+#if 1
+        /* Flush stdout at the end of connection if no connection is active. */
+        if (ret == 0 && picoquic_get_first_cnx(quic) == NULL) {
+            fflush(stdout);
+        }
+#endif
     }
     return ret;
 }

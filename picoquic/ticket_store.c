@@ -584,6 +584,11 @@ void picoquic_seed_ticket(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
         picoquic_get_ip_addr((struct sockaddr*) & path_x->first_tuple->peer_addr, &ip_addr, &ip_addr_length);
         (void) picoquic_remember_issued_ticket(cnx->quic, cnx->issued_ticket_id,
             path_x->rtt_min, target_cwin, ip_addr, ip_addr_length);
+
+#if 1
+        fprintf(stdout, "Ticket seeded. cwin=%" PRIu64 ", rtt=%" PRIu64 "\n", target_cwin, path_x->rtt_min);
+        //fflush(stdout);
+#endif
     }
     path_x->is_ticket_seeded = 1;
 }

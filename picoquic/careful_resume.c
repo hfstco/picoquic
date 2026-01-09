@@ -108,39 +108,67 @@ void picoquic_cr_cwin_blocked(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx
 {
     switch (cr_state->alg_state)
     {
-    case picoquic_cr_alg_reconnaissance:
-        if (cr_state->saved_congestion_window != UINT64_MAX &&
-            picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10)
-        {
-            cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
-            picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
-            /* Reset cwin blocked state. */
-            cnx->cwin_blocked = 0;
-            picoquic_set_app_wake_time(cnx, current_time);
-        }
-        break;
-    case picoquic_cr_alg_unvalidated:
-        cr_state->trigger = picoquic_cr_trigger_last_unvalidated_packet_sent;
-        picoquic_cr_enter_validating(cr_state, cnx, path_x, current_time);
-        break;
-    default:
-        break;
+        case picoquic_cr_alg_reconnaissance:
+            if (cr_state->saved_congestion_window != UINT64_MAX &&
+                picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10)
+            {
+                cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
+                picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
+                /* Reset cwin blocked state. */
+                cnx->cwin_blocked = 0;
+                picoquic_set_app_wake_time(cnx, current_time);
+            }
+            break;
+        case picoquic_cr_alg_unvalidated:
+            cr_state->trigger = picoquic_cr_trigger_last_unvalidated_packet_sent;
+            picoquic_cr_enter_validating(cr_state, cnx, path_x, current_time);
+            break;
+        default:
+            break;
     }
 }
 
 void picoquic_cr_seed_cwin(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx, picoquic_path_t* path_x,
                                   uint64_t saved_congestion_window, uint64_t current_time)
 {
+#if 1
+    fprintf(stdout, "%"PRIu64" Connection seeded. saved_congestion_window=%" PRIu64 "\n",
+        current_time - cnx->start_time, saved_congestion_window);
+    //fflush(stdout);
+#endif
+
     if (cr_state->alg_state == picoquic_cr_alg_reconnaissance)
     {
         cr_state->saved_congestion_window = saved_congestion_window;
 
         /* Jump instantly instead of waiting for picoquic_congestion_notification_cwin_blocked notification. */
-        if (cr_state->saved_congestion_window != UINT64_MAX && path_x->bytes_in_transit >= path_x->cwin &&
+        /*if (cr_state->saved_congestion_window != UINT64_MAX && path_x->bytes_in_transit >= path_x->cwin &&
             picoquic_cc_get_ack_number(cnx, path_x) != UINT64_MAX && picoquic_cc_get_ack_number(cnx, path_x) >= 10)
         {
             cr_state->trigger = picoquic_cr_trigger_cwnd_limited;
             picoquic_cr_enter_unvalidated(cr_state, cnx, path_x, current_time);
+        }*/
+
+        /* Set max data. */
+        if (cnx->max_stream_data_local < saved_congestion_window)
+        {
+            cnx->max_stream_data_local = saved_congestion_window;
+        }
+        if (cnx->max_stream_data_remote < saved_congestion_window)
+        {
+            cnx->max_stream_data_remote = saved_congestion_window;
+        }
+        picoquic_stream_head_t *stream = cnx->first_output_stream;
+        while (stream != NULL) {
+            if (stream->maxdata_local < saved_congestion_window)
+            {
+                stream->maxdata_local = saved_congestion_window;
+            }
+            if (stream->maxdata_remote < saved_congestion_window)
+            {
+                stream->maxdata_remote = saved_congestion_window;
+            }
+            stream = stream->next_output_stream;
         }
     }
 }
@@ -167,6 +195,11 @@ void picoquic_cr_enter_unvalidated(picoquic_cr_state_t* cr_state, picoquic_cnx_t
     cr_state->first_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
     cr_state->pipesize = path_x->bytes_in_transit;
     path_x->cwin = cr_state->saved_congestion_window / 2;
+
+#if 1
+    fprintf(stdout, "%"PRIu64" Enter Unvalidated. cwin=%" PRIu64 ", first_unvalidated_packet=%" PRIu64 "\n", current_time - cnx->start_time, path_x->cwin, cr_state->first_unvalidated_packet);
+    //fflush(stdout);
+#endif
 }
 
 /* Enter Validating Phase. */
@@ -193,6 +226,11 @@ void picoquic_cr_enter_validating(picoquic_cr_state_t* cr_state, picoquic_cnx_t*
     }
 
     cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x);
+
+#if 1
+    fprintf(stdout, "%"PRIu64" Enter Validating. last_unvalidated_packet=%" PRIu64 "\n", current_time - cnx->start_time, cr_state->last_unvalidated_packet);
+    //fflush(stdout);
+#endif
 }
 
 /* Enter Safe Retreat Phase. */
@@ -213,6 +251,11 @@ void picoquic_cr_enter_safe_retreat(picoquic_cr_state_t* cr_state, picoquic_cnx_
     {
         cr_state->last_unvalidated_packet = picoquic_cc_get_sequence_number(cnx, path_x) - 1;
     }
+
+#if 1
+    fprintf(stdout, "%"PRIu64" Enter Safe Retreat. cwin=%" PRIu64 ", pipesize=%" PRIu64 "\n", current_time - cnx->start_time, path_x->cwin, cr_state->pipesize);
+    //fflush(stdout);
+#endif
 }
 
 /* Enter Normal Phase. */
@@ -224,4 +267,10 @@ void picoquic_cr_enter_normal(picoquic_cr_state_t* cr_state, picoquic_cnx_t* cnx
 
     cr_state->previous_start_of_epoch = cr_state->start_of_epoch;
     cr_state->start_of_epoch = current_time;
+
+#if 1
+    uint64_t current_packet = picoquic_cc_get_ack_number(cnx, path_x);
+    fprintf(stdout, "%" PRIu64 " Enter Normal. cwin=%" PRIu64 ", current_packet=%" PRIu64 "\n", current_time - cnx->start_time, path_x->cwin, current_packet);
+    //fflush(stdout);
+#endif
 }

@@ -29,14 +29,16 @@ if (PICOQUIC_FETCH_PTLS)
     endif()
     set(PTLS_INCLUDE_DIRS ${picotls_SOURCE_DIR}/include)
 else(PICOQUIC_FETCH_PTLS)
+    message(PTLS_PREFIX="${PTLS_PREFIX}")
     find_path(PTLS_INCLUDE_DIR
         NAMES picotls/openssl.h
-        HINTS ${PTLS_PREFIX}/include/picotls
+        HINTS ${PTLS_PREFIX}/include
+            ${PTLS_PREFIX}/include/picotls
             ${CMAKE_SOURCE_DIR}/../picotls/include
             ${CMAKE_BINARY_DIR}/../picotls/include
             ../picotls/include/ )
 
-    set(PTLS_HINTS ${PTLS_PREFIX}/lib ${CMAKE_BINARY_DIR}/../picotls ../picotls)
+    set(PTLS_HINTS ${PTLS_PREFIX} ${PTLS_PREFIX}/lib ${CMAKE_BINARY_DIR}/../picotls ../picotls)
 
     find_library(PTLS_CORE_LIBRARY picotls-core HINTS ${PTLS_HINTS})
     find_library(PTLS_MINICRYPTO_LIBRARY picotls-minicrypto HINTS ${PTLS_HINTS})

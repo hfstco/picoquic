@@ -91,6 +91,11 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
 #if 1
+    fprintf(stdout, "%"PRIu64" Validate BDP seed.\n",
+        current_time - cnx->start_time);
+    //fflush(stdout);
+#endif
+#if 1
     /* Seed from ENV variables. DEBUG only. */
     if (getenv("PREVIOUS_RTT") && getenv("PREVIOUS_CWND_BYTES")) {
         uint8_t* ip_addr;
@@ -103,9 +108,11 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
 
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
         !cnx->cwin_notified_from_seed){
-        uint64_t rtt_margin = rtt_sample / 4;
+        /* uint64_t rtt_margin = rtt_sample / 4;
         if (cnx->seed_rtt_min >= rtt_sample - rtt_margin &&
-            cnx->seed_rtt_min <= rtt_sample + rtt_margin) {
+            cnx->seed_rtt_min <= rtt_sample + rtt_margin) { */
+        if (cnx->seed_rtt_min >= rtt_sample / 2 &&
+            cnx->seed_rtt_min <= rtt_sample * 10) {
             uint8_t* ip_addr;
             uint8_t ip_addr_length;
             picoquic_get_ip_addr((struct sockaddr*)&path_x->first_tuple->peer_addr, &ip_addr, &ip_addr_length);
@@ -324,7 +331,7 @@ void picoquic_update_path_rtt(picoquic_cnx_t* cnx, picoquic_path_t* old_path, pi
 
         /* On very first sample, apply the saved BDP */
         if (is_first) {
-            picoquic_validate_bdp_seed(cnx, old_path, rtt_estimate, current_time);
+            picoquic_validate_bdp_seed(cnx, old_path, cnx->path[0]->rtt_min, current_time);
         }
         /* Perform a quality changed callback if needed */
         (void)picoquic_issue_path_quality_update(cnx, old_path);

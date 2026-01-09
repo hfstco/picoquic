@@ -118,7 +118,7 @@ uint64_t picoquic_cc_update_cwin_for_long_rtt(picoquic_path_t * path_x);
 /* Careful Resume. */
 
 #define PICOQUIC_CR_BETA 0.5
-#define PICOQUIC_CR_ACTIVE (cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance || cubic_state->cr_state.alg_state == picoquic_cr_alg_validating || cubic_state->cr_state.alg_state == picoquic_cr_alg_normal)
+#define PICOQUIC_CR_CWIN_LOCKED (cubic_state->cr_state.alg_state == picoquic_cr_alg_unvalidated || cubic_state->cr_state.alg_state == picoquic_cr_alg_safe_retreat)
 
 typedef enum {
     picoquic_cr_trigger_cwnd_limited = 0,

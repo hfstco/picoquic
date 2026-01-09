@@ -254,6 +254,9 @@ uint64_t picoquic_cc_update_target_cwin_estimation(picoquic_path_t* path_x) {
 
     /* Return increased cwin, if larger than current cwin. */
     if (min_win > path_x->cwin) {
+#if 0
+        fprintf(stdout, "Updated cwin. cwin_before=%" PRIu64 ", cwin_after=%" PRIu64 "\n", path_x->cwin, min_win);
+#endif
         return min_win;
     }
 
@@ -273,6 +276,9 @@ uint64_t picoquic_cc_update_cwin_for_long_rtt(picoquic_path_t * path_x) {
 
     /* Return increased cwin, if larger than current cwin. */
     if (min_cwnd > path_x->cwin) {
+#if 1
+        fprintf(stdout, "Updated cwin for long RTTs. cwin_before=%" PRIu64 ", cwin_after=%" PRIu64 "\n", path_x->cwin, min_cwnd);
+#endif
         return min_cwnd;
     }
 
