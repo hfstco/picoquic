@@ -265,7 +265,7 @@ static void cubic_notify(
                         if (cubic_state->cr_state.alg_state == picoquic_cr_alg_normal ||  cubic_state->cr_state.alg_state == picoquic_cr_alg_reconnaissance)
                         {
                             /* Increase cwin based on bandwidth estimation. */
-                            path_x->cwin = picoquic_cc_update_target_cwin_estimation(path_x);
+                            //path_x->cwin = picoquic_cc_update_target_cwin_estimation(path_x);
                         }
 
                         if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
@@ -403,7 +403,7 @@ static void cubic_notify(
                             }
                             uint64_t base_window = (uint64_t)(correction * (double)path_x->cwin);
                             uint64_t delta_window = path_x->cwin - base_window;
-                            path_x->cwin -= (delta_window / 2);
+                            //path_x->cwin -= (delta_window / 2);
                         }
                         else {
                             /* In the general case, compensate for the growth of the window after the acknowledged packet was sent. */
