@@ -55,6 +55,7 @@ static void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* pa
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
     path_x->cwin = PICOQUIC_CWIN_INITIAL;
+    fprintf(stdout, "Initial Window is set to %" PRIu64 "\n", path_x->cwin);
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
     cubic_state->ssthresh = UINT64_MAX;
     cubic_state->W_last_max = (double)cubic_state->ssthresh / (double)path_x->send_mtu;
