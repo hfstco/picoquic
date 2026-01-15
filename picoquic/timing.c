@@ -127,6 +127,9 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
                     picoquic_congestion_notification_seed_cwin,
                     &ack_state, current_time);
             }
+        } else
+        {
+            fprintf(stdout, "Path validation failed. seed_rtt_min=%" PRIu64 ", rtt_sample=%" PRIu64 "\n", cnx->seed_rtt_min, rtt_sample);
         }
     }
 }
