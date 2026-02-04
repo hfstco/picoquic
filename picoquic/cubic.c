@@ -227,6 +227,7 @@ static void cubic_enter_recovery(picoquic_cnx_t * cnx,
         else {
             /* Enter congestion avoidance immediately */
             cubic_enter_avoidance(cubic_state, current_time);
+            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
             /* Compute the initial window for both Reno and Cubic */
             double W_cubic = cubic_W_cubic(cubic_state, current_time);
             uint64_t win_cubic = (uint64_t)(W_cubic * (double)path_x->send_mtu);
@@ -261,6 +262,7 @@ static void cubic_correct_spurious(picoquic_path_t* path_x,
         cubic_state->alg_state = cubic_state->previous_alg_state;
         if (cubic_state->alg_state != picoquic_cubic_alg_slow_start) {
             cubic_enter_avoidance(cubic_state, cubic_state->previous_start_of_epoch);
+            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
             double W_cubic = cubic_W_cubic(cubic_state, current_time);
             cubic_state->W_reno = W_cubic * (double)path_x->send_mtu;
             cubic_state->ssthresh = (uint64_t)(cubic_state->W_max * PICOQUIC_CUBIC_BETA * (double)path_x->send_mtu);
@@ -309,6 +311,7 @@ static void cubic_notify(
                                 cubic_state->W_reno = ((double)path_x->cwin) / 2.0;
                                 path_x->is_ssthresh_initialized = 1;
                                 cubic_enter_avoidance(cubic_state, current_time);
+                                picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
                             }
                         }
                         break;
@@ -322,6 +325,7 @@ static void cubic_notify(
                         /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                         if (path_x->cwin >= cubic_state->ssthresh) {
                             cubic_state->alg_state = picoquic_cubic_alg_congestion_avoidance;
+                            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
                         }
                         break;
                     case picoquic_cubic_alg_congestion_avoidance:
@@ -463,6 +467,7 @@ static void cubic_notify(
                         cubic_state->W_reno = ((double)path_x->cwin);
                         path_x->is_ssthresh_initialized = 1;
                         cubic_enter_avoidance(cubic_state, current_time);
+                        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
                     }
                 }
                 break;
@@ -497,6 +502,7 @@ static void dcubic_exit_slow_start(
         cubic_state->W_last_max = cubic_state->W_max;
         cubic_state->W_reno = ((double)path_x->cwin);
         cubic_enter_avoidance(cubic_state, current_time);
+        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time);
         /* apply a correction to enter the test phase immediately */
         uint64_t K_micro = (uint64_t)(cubic_state->K * 1000000.0);
         if (K_micro > current_time) {
