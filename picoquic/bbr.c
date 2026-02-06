@@ -2153,8 +2153,10 @@ void BBRCheckStartupLongRtt(picoquic_bbr_state_t* bbr_state, picoquic_cnx_t* cnx
     if (bbr_state->hystart_alg == picoquic_hystart_alg_hystart_t && picoquic_cc_hystart_test(&bbr_state->rtt_filter, rs->rtt_sample,
         path_x->pacing.packet_time_microsec, current_time, 0)) {
         BBRExitStartupLongRtt(bbr_state, path_x, current_time);
+        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
     } else if (bbr_state->hystart_alg == picoquic_hystart_alg_hystart_pp_t && picoquic_cc_hystart_pp_test(&bbr_state->hystart_pp_state, cnx, path_x, rs->rtt_sample)) {
         BBRExitStartupLongRtt(bbr_state, path_x, current_time);
+        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
     }
     else if (rs->ecn_alpha > BBRExcessiveEcnCE) {
         BBRExitStartupLongRtt(bbr_state, path_x, current_time);

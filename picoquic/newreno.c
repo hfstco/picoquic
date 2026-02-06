@@ -63,6 +63,7 @@ static void picoquic_newreno_sim_enter_recovery(
     else {
         nr_state->cwin = nr_state->ssthresh;
         nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
     }
 
     nr_state->recovery_start = current_time;
@@ -110,6 +111,7 @@ void picoquic_newreno_sim_notify(
             /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
             if (nr_state->cwin >= nr_state->ssthresh) {
                 nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+                picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
             }
             break;
         case picoquic_newreno_alg_congestion_avoidance: {
@@ -280,6 +282,7 @@ static void picoquic_newreno_notify(
 
                     if (nr_state->nrss.cwin >= nr_state->nrss.ssthresh) {
                         nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
+                        picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                     }
                 } else {
                     picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
@@ -329,6 +332,7 @@ static void picoquic_newreno_notify(
                             nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
                             path_x->cwin = nr_state->nrss.cwin;
                             path_x->is_ssthresh_initialized = 1;
+                            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                         }
                         break;
                     case picoquic_hystart_alg_hystart_pp_t:
@@ -339,6 +343,7 @@ static void picoquic_newreno_notify(
                             nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
                             path_x->cwin = nr_state->nrss.cwin;
                             path_x->is_ssthresh_initialized = 1;
+                            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                         }
                         break;
                     case picoquic_hystart_alg_disabled_t:

@@ -242,6 +242,7 @@ static void picoquic_prague_enter_recovery(
 
     path_x->cwin = pr_state->ssthresh;
     pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
+    picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
 
     picoquic_prague_initialize_era(cnx, path_x, pr_state, current_time);
 }
@@ -350,6 +351,7 @@ void picoquic_prague_process_start_ack(picoquic_cnx_t* cnx,
         /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
         if (path_x->cwin >= pr_state->ssthresh) {
             pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
+            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
             picoquic_prague_initialize_era(cnx, path_x, pr_state, current_time);
         }
     }
@@ -418,6 +420,7 @@ void picoquic_prague_notify(
                             pr_state->ssthresh = path_x->cwin;
                             pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
                             path_x->is_ssthresh_initialized = 1;
+                            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                         }
                         break;
                     case picoquic_hystart_alg_hystart_pp_t:
@@ -427,6 +430,7 @@ void picoquic_prague_notify(
                             pr_state->ssthresh = path_x->cwin;
                             pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
                             path_x->is_ssthresh_initialized = 1;
+                            picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                         }
                         break;
                     case picoquic_hystart_alg_disabled_t:
