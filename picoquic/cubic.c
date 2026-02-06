@@ -422,6 +422,7 @@ static void cubic_notify(
                                 cubic_state->W_last_max = cubic_state->W_max;
                                 cubic_state->W_reno = ((double)path_x->cwin);
                                 path_x->is_ssthresh_initialized = 1;
+                                picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                                 /* enter recovery to ignore the losses expected if the window grew
                                 * too large after the acknowleded packet was sent. */
                                 cubic_enter_recovery(cnx, path_x, notification, cubic_state, current_time);
@@ -445,6 +446,7 @@ static void cubic_notify(
                                 cubic_state->W_last_max = cubic_state->W_max;
                                 cubic_state->W_reno = ((double)path_x->cwin);
                                 path_x->is_ssthresh_initialized = 1;
+                                picoquic_log_app_message(path_x->cnx, "Enter congestion avoidance. cwin=%" PRIu64 ", current_time=%" PRIu64 "", path_x->cwin, current_time - path_x->cnx->start_time);
                                 cubic_enter_avoidance(cubic_state, current_time);
                             }
                             break;
