@@ -29,6 +29,7 @@
 #include "logreader.h"
 #include "qlog.h"
 #include "picoquic_bbr.h"
+#include "picoquic_qlog.h"
 
 /* Add the additional links for multipath scenario */
 static int multipath_test_add_links(picoquic_test_tls_api_ctx_t* test_ctx, int mtu_drop)
@@ -384,7 +385,6 @@ void multipath_init_params(picoquic_tp_t *test_parameters, int enable_time_stamp
     memset(test_parameters, 0, sizeof(picoquic_tp_t));
 
     picoquic_init_transport_parameters(test_parameters, 1);
-    test_parameters->is_multipath_enabled = 1;
     test_parameters->initial_max_path_id = 2;
     test_parameters->enable_time_stamp = 3;
 }
@@ -873,7 +873,6 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
         /* set the binary log on the client side */
         picoquic_set_binlog(test_ctx->qclient, ".");
         test_ctx->qclient->use_long_log = 1;
-        binlog_new_connection(test_ctx->cnx_client);
         /* Set the multipath option at both client and server */
         multipath_init_params(&server_parameters, is_sat_test);
         if (test_id == multipath_test_datagram || test_id == multipath_test_dg_af) {
@@ -891,7 +890,6 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
         picoquic_set_default_tp(test_ctx->qserver, &server_parameters);
         test_ctx->cnx_client->local_parameters.enable_time_stamp = 3;
 
-        test_ctx->cnx_client->local_parameters.is_multipath_enabled = 1;
         test_ctx->cnx_client->local_parameters.initial_max_path_id = 3;
     }
 
@@ -1204,7 +1202,7 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
             ret = -1;
         }
         else if (test_ctx->cnx_client->nb_paths != 2) {
-            DBG_PRINTF("After break and back, %d paths on server connection.\n", test_ctx->cnx_client->nb_paths);
+            DBG_PRINTF("After break and back, %d paths on client connection.\n", test_ctx->cnx_client->nb_paths);
             ret = -1;
         }
     }
@@ -1289,7 +1287,7 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
 }
 
 /* Basic multipath test. Set up two links in parallel, verify that both are used and that
- * the overall transmission is shorterthan if only one link was used.
+ * the overall transmission is shorter than if only one link was used.
  */
 
 int multipath_basic_test()
@@ -1596,8 +1594,6 @@ int monopath_test_one(monopath_test_enum_t test_case)
         /* set the binary log on the client side */
         picoquic_set_binlog(test_ctx->qclient, ".");
         test_ctx->qclient->use_long_log = 1;
-        /* Since the client connection was created before the binlog was set, force log of connection header */
-        binlog_new_connection(test_ctx->cnx_client);
 
         if (test_case == monopath_test_hole) {
             /* set the optimistic ack policy, to trigger hole insertion at the server */
@@ -1702,12 +1698,12 @@ int monopath_rotation_test()
 /* The zero RTT test uses the unipath code, with a special parameter.
  * Test both regular 0RTT set up, and case of losses.
  */
-int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
-    unsigned int no_coal, unsigned int long_data, uint64_t extra_delay, int do_multipath);
 
 int monopath_0rtt_test()
 {
-    return zero_rtt_test_one(0, 0, 0, 0, 0, 0, 1);
+    zero_rtt_test_t zrt = { 0 };
+    zrt.do_multipath = 1;
+    return zero_rtt_test_one(&zrt);
 }
 
 int monopath_0rtt_loss_test()
@@ -1715,8 +1711,10 @@ int monopath_0rtt_loss_test()
     int ret = 0;
 
     for (unsigned int i = 1; ret == 0 && i < 16; i++) {
-        uint64_t early_loss = 1ull << i;
-        ret = zero_rtt_test_one(0, 0, early_loss, 0, 0, 0, 1);
+        zero_rtt_test_t zrt = { 0 };
+        zrt.early_loss = 1ull << i;
+        zrt.do_multipath = 1;
+        ret = zero_rtt_test_one(&zrt);
         if (ret != 0) {
             DBG_PRINTF("Monopath 0 RTT test fails when packet #%d is lost.\n", i);
         }
@@ -1803,6 +1801,7 @@ int multipath_aead_test()
  */
 
 #define MULTIPATH_TRACE_BIN  "0807060504030201.server.log"
+#define MULTIPATH_TRACE_QLOG  "0807060504030201.server.qlog"
 #define MULTIPATH_QLOG "multipath_qlog_test.qlog"
 #ifdef _WINDOWS
 #define MULTIPATH_QLOG_REF "picoquictest\\multipath_qlog_ref.txt"
@@ -1817,7 +1816,7 @@ static test_api_stream_desc_t test_scenario_multipath_qlog[] = {
 
 static const picoquic_connection_id_t qlog_multipath_initial_cid = { {8, 7, 6, 5, 4, 3, 2, 1}, 8 };
 
-int multipath_trace_test_one()
+int multipath_trace_test_one(int use_qlog_streaming)
 {
     uint64_t simulated_time = 0;
     picoquic_test_tls_api_ctx_t* test_ctx = NULL;
@@ -1835,12 +1834,16 @@ int multipath_trace_test_one()
         ret = -1;
     }
 
-    (void)picoquic_file_delete(MULTIPATH_TRACE_BIN, NULL);
-
     /* Set the logging policy on the server side, to store data in the
      * current working directory, and run a basic test scenario */
     if (ret == 0) {
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        if (use_qlog_streaming) {
+            picoquic_set_qlog(test_ctx->qserver, ".");
+        }
+        else {
+            (void)picoquic_file_delete(MULTIPATH_TRACE_BIN, NULL);
+            picoquic_set_binlog(test_ctx->qserver, ".");
+        }
         (void)picoquic_set_default_spinbit_policy(test_ctx->qserver, picoquic_spinbit_on);
         (void)picoquic_set_default_spinbit_policy(test_ctx->qclient, picoquic_spinbit_on);
         picoquic_set_default_lossbit_policy(test_ctx->qserver, picoquic_lossbit_send_receive);
@@ -1963,7 +1966,7 @@ int multipath_qlog_test()
     int ret = 0;
     (void)picoquic_file_delete(MULTIPATH_QLOG, NULL);
 
-    ret = multipath_trace_test_one();
+    ret = multipath_trace_test_one(0);
 
     /* Create a QLOG file from the .log file */
     if (ret == 0) {
@@ -1994,6 +1997,34 @@ int multipath_qlog_test()
         }
         else {
             ret = picoquic_test_compare_text_files(MULTIPATH_QLOG, qlog_trace_test_ref);
+        }
+    }
+
+    return ret;
+}
+
+
+int multipath_qlog_fns_test()
+{
+    int ret = 0;
+
+    (void)picoquic_file_delete(MULTIPATH_TRACE_QLOG, NULL);
+
+    ret = multipath_trace_test_one(1);
+
+    /* compare the log file to the expected value */
+    if (ret == 0)
+    {
+        char qlog_trace_test_ref[512];
+
+        ret = picoquic_get_input_path(qlog_trace_test_ref, sizeof(qlog_trace_test_ref),
+            picoquic_solution_dir, MULTIPATH_QLOG_REF);
+
+        if (ret != 0) {
+            DBG_PRINTF("%s", "Cannot set the qlog trace test ref file name.\n");
+        }
+        else {
+            ret = picoquic_test_compare_text_files(MULTIPATH_TRACE_QLOG, qlog_trace_test_ref);
         }
     }
 

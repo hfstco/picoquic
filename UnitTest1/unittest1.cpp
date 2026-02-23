@@ -90,6 +90,13 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(error_name)
+        {
+            int ret = error_name_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(util_sprintf)
         {
             int ret = util_sprintf_test();
@@ -328,6 +335,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(qlog_frames)
+        {
+            int ret = qlog_frames_test();
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(app_message_overflow)
         {
             int ret = app_message_overflow_test();
@@ -547,6 +560,12 @@ namespace UnitTest1
         TEST_METHOD(tls_api_inject_hs_ack)
         {
             int ret = tls_api_inject_hs_ack_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+        TEST_METHOD(tls_exporter)
+        {
+            int ret = tls_exporter_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -783,6 +802,12 @@ namespace UnitTest1
         TEST_METHOD(vn_compat)
         {
             int ret = vn_compat_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(transport_param_default) {
+            int ret = transport_param_default_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -1382,6 +1407,13 @@ namespace UnitTest1
           Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(client_auth_25519)
+        {
+          int ret = request_client_authentication_25519_test();
+
+          Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(virtual_time)
         {
             int ret = virtual_time_test();
@@ -1562,7 +1594,13 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+#if 0
+        TEST_METHOD(zero_rtt_ech) {
+            int ret = zero_rtt_ech_test();
 
+            Assert::AreEqual(ret, 0);
+        }
+#endif
         TEST_METHOD(cnxid_transmit)
         {
             int ret = transmit_cnxid_test();
@@ -1820,23 +1858,23 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
-        TEST_METHOD(qlog_trace_auto)
-        {
-            int ret = qlog_trace_auto_test();
-
-            Assert::AreEqual(ret, 0);
-        }
-
-        TEST_METHOD(qlog_trace_only)
-        {
-            int ret = qlog_trace_only_test();
-
-            Assert::AreEqual(ret, 0);
-        }
-
         TEST_METHOD(qlog_trace_ecn)
         {
             int ret = qlog_trace_ecn_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(qlog_fns)
+        {
+            int ret = qlog_fns_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(qlog_fns_ecn)
+        {
+            int ret = qlog_fns_ecn_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -2320,6 +2358,13 @@ namespace UnitTest1
         TEST_METHOD(l4s_prague_updown)
         {
             int ret = l4s_prague_updown_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(l4s_c4)
+        {
+            int ret = l4s_c4_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -3010,6 +3055,11 @@ namespace UnitTest1
         TEST_METHOD(multipath_qlog) {
             int ret = multipath_qlog_test();
 
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_qlog_fns) {
+            int ret = multipath_qlog_fns_test();
             Assert::AreEqual(ret, 0);
         }
 

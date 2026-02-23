@@ -8,7 +8,7 @@ else()
 endif()
 
 project(picoquic
-        VERSION 1.1.42.0
+        VERSION 1.1.45.0
         DESCRIPTION "picoquic library"
         LANGUAGES C CXX)
 
@@ -19,6 +19,7 @@ option(ENABLE_ASAN "Enable AddressSanitizer (ASAN) for debugging" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (UBSan) for debugging" OFF)
 option(BUILD_DEMO "Build picoquicdemo" ON)
 option(BUILD_HTTP "Build picohttp" ON)
+option(BUILD_PQBENCH "Build pqbench" ON)
 option(BUILD_LOGLIB "Build picoquic-log" ON)
 option(BUILD_LOGREADER "Build picolog_t the log reader" ON)
 
@@ -87,6 +88,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/error_names.c
     picoquic/fastcc.c
     picoquic/frames.c
+    picoquic/frame_names.c
     picoquic/intformat.c
     picoquic/logger.c
     picoquic/logwriter.c
@@ -94,6 +96,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/newreno.c
     picoquic/pacing.c
     picoquic/packet.c
+    picoquic/packet_names.c
     picoquic/paths.c
     picoquic/performance_log.c
     picoquic/picohash.c
@@ -118,6 +121,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/timing.c
     picoquic/token_store.c
     picoquic/tls_api.c
+    picoquic/tp_names.c
     picoquic/transport.c
     picoquic/unified_log.c
     picoquic/util.c)
@@ -163,6 +167,8 @@ set(LOGLIB_LIBRARY_FILES
     loglib/logreader.c
     loglib/memory_log.c
     loglib/qlog.c
+    loglib/qlog_frames.c
+    loglib/qlog_fns.c
     loglib/svg.c)
 
 set(PICOQUIC_LOGLIB_HEADERS
@@ -211,6 +217,7 @@ set(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/picoquic_lb_test.c
     picoquictest/picoquic_ns.c
     picoquictest/pn2pn64test.c
+    picoquictest/qlog_frame_test.c
     picoquictest/qlog_test.c
     picoquictest/quic_tester.c
     picoquictest/red_aqm.c
@@ -301,6 +308,13 @@ else()
     list(APPEND PICOQUIC_COMPILE_DEFINITIONS PTLS_WITHOUT_OPENSSL)
 endif()
 
+
+OPTION(WITH_SELECT "build with select" OFF)
+if(WITH_SELECT)
+    message(STATUS "Building with select() instead of poll()")
+    list(APPEND PICOQUIC_COMPILE_DEFINITIONS PICOQUIC_USES_SELECT)
+endif()
+
 OPTION(WITH_MBEDTLS "enable MBEDTLS" OFF)
 
 IF (WITH_MBEDTLS)
@@ -318,6 +332,18 @@ IF (WITH_MBEDTLS)
         message(STATUS "mbedtls libraries: ${MBEDTLS_LIBRARIES}")
         MESSAGE (FATAL_ERROR "MbedTLS not found")
     ENDIF()
+ENDIF ()
+
+OPTION(WITH_IO_URING "enable IO_URING" OFF)
+IF (WITH_IO_URING)
+    message(STATUS "Enabling IO_URING support")
+    find_library(LIBURING NAMES uring)  
+    if (NOT LIBURING)  
+        message(FATAL_ERROR "liburing not found")
+    else()
+        message(STATUS "Found liburing: ${LIBURING}")
+        list(APPEND PICOQUIC_COMPILE_DEFINITIONS PICOQUIC_WITH_IO_URING)
+    endif()
 ENDIF ()
 
 # set_picoquic_compile_settings(TARGET) makes is easy to consistently
@@ -376,6 +402,7 @@ target_include_directories(picoquic-core
         picoquic_mbedtls)
 target_link_libraries(picoquic-core
     PRIVATE
+        ${LIBURING}
         ${OPENSSL_LIBRARIES}
         ${MBEDTLS_LIBRARIES}
     PUBLIC
@@ -441,6 +468,22 @@ if (BUILD_DEMO)
     set_picoquic_compile_settings(picoquicdemo)
 endif()
 
+if (BUILD_PQBENCH)
+    add_executable(pqbench
+        pqbench_app/pqbench.c
+        picoquicfirst/getopt.c)
+    target_link_libraries(pqbench
+        PUBLIC
+            ${PTLS_LIBRARIES}
+            ${OPENSSL_LIBRARIES}
+            ${MBEDTLS_LIBRARIES}
+            picoquic-log
+            picoquic-core
+            picohttp-core)
+    target_include_directories(pqbench PRIVATE picohttp loglib picoquic)
+    set_picoquic_compile_settings(pqbench)
+endif()
+
 if (BUILD_LOGREADER)
     add_executable(picolog_t picolog/picolog.c)
     target_link_libraries(picolog_t PRIVATE picoquic-log picoquic-core)
@@ -465,13 +508,33 @@ if(BUILD_TESTING AND picoquic_BUILD_TESTS)
     set_picoquic_compile_settings(picoquic-test)
 
     add_executable(picoquic_ct picoquic_t/picoquic_t.c)
-    target_link_libraries(picoquic_ct PRIVATE picoquic-test ${MBEDTLS_LIBRARIES})
+    
+    target_link_libraries(picoquic_ct
+        PUBLIC
+            ${PTLS_LIBRARIES}
+            ${OPENSSL_LIBRARIES}
+            ${MBEDTLS_LIBRARIES}
+            picoquic-test
+            picoquic-log
+            picohttp-core
+            picoquic-core)
+
     set_picoquic_compile_settings(picoquic_ct)
 
     add_executable(picohttp_ct
         picohttp_t/picohttp_t.c
         ${PICOHTTP_TEST_LIBRARY_FILES})
-    target_link_libraries(picohttp_ct PRIVATE picohttp-core picoquic-test)
+        
+    target_link_libraries(picohttp_ct
+        PUBLIC
+            ${PTLS_LIBRARIES}
+            ${OPENSSL_LIBRARIES}
+            ${MBEDTLS_LIBRARIES}
+            picoquic-test
+            picoquic-log
+            picohttp-core
+            picoquic-core)
+
     target_include_directories(picohttp_ct PRIVATE picohttp)
     set_picoquic_compile_settings(picohttp_ct)
 

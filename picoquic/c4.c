@@ -76,30 +76,54 @@
 * - RTT min
  */
 
-#define C4_WITH_LOGGING 
+ /* The probe level is used to set the probing rate during the "push" phase.
+ *
+ * The probe level is set to 1 when entering the initial phase.
+ *
+ * It is computed by an adaptive mechanism:
+ *
+ * - increase the level by 1 if the previous push was successful
+ * - decrease the level by 1 if the previous push was not successful, down to level 1.
+ * - set the level to zero if the push generated heavy packet loss or CE marks.
+ *
+ * The probe level is at most 3. An increase above 3 is equivalent to a decision
+ * to reenter the initial phase.
+ *
+ * Probing rate and number of cruising cycles are function of the level:
+ *  - Level 0: push rate 3,125%, 4 cycles before push
+ *  - Level 1: push rate 6.25%, 4 cycles before push
+ *  - Level 2: push rate 25%, 4 cycles before push
+ *  - Level 3: push rate 25%, 1 cycle before push
+ */
+
+#define C4_WITH_LOGGING
 
 #define PICOQUIC_CC_ALGO_NUMBER_C4 8
 #define C4_DELAY_THRESHOLD_MAX 25000
 #define MULT1024(c, v) (((v)*(c)) >> 10)
 #define C4_ALPHA_NEUTRAL_1024 1024 /* 100% */
 #define C4_ALPHA_RECOVER_1024 960 /* 93.75% */
+#define C4_ALPHA_RECOVER2_1024 896 /* 87.50% */
 #define C4_ALPHA_CRUISE_1024 1024 /* 100% */
 #define C4_ALPHA_PUSH_1024 1280 /* 125 % */
 #define C4_ALPHA_PUSH_LOW_1024 1088 /* 106.25 % */
+#define C4_ALPHA_PUSH_VERY_LOW_1024 1056 /* 103.125 % */
 #define C4_ALPHA_INITIAL 2048 /* 200% */
 #define C4_ALPHA_PREVIOUS_LOW 960 /* 93.75% */
-#define C4_BETA_1024 128 /* 0.125 */
 #define C4_BETA_LOSS_1024 256 /* 25%, 1/4th */
-#define C4_BETA_INITIAL_1024 512 /* 50% */
 #define C4_NB_PACKETS_BEFORE_LOSS 20
-#define C4_NB_PUSH_BEFORE_RESET 4
 #define C4_NB_CRUISE_BEFORE_PUSH 4
-#define C4_MAX_DELAY_ERA_CONGESTIONS 4
-#define C4_RTT_MARGIN_5PERCENT 51
 #define C4_RTT_MARGIN_DELAY 15000
+#define C4_MAX_RTT_MIN 1000
 #define C4_MAX_JITTER 250000
-#define C4_KAPPA ((double)(1.0/4.0))
 #define C4_ECN_SHIFT_G 4 /* g = 1/2^4, gain parameter for alpha EWMA */
+
+#define C4_PROBE_LEVEL_MAX 3
+#define C4_PROBE_LEVEL_DEFAULT 1
+
+uint64_t c4_push_rate_by_probe_level[C4_PROBE_LEVEL_MAX + 1] = {
+    C4_ALPHA_PUSH_VERY_LOW_1024, C4_ALPHA_PUSH_LOW_1024, C4_ALPHA_PUSH_1024, C4_ALPHA_PUSH_1024
+};
 
 typedef enum {
     c4_initial = 0,
@@ -120,6 +144,7 @@ typedef struct st_c4_state_t {
     c4_alg_state_t alg_state;
     uint64_t nominal_rate; /* Control variable if not delay based. */
     uint64_t nominal_max_rtt; /* Estimate of queue-free max RTT */
+    uint64_t initial_cwnd; /* CWND value used during Initial phase */
     uint64_t running_min_rtt; /* Rough estimate of min RTT, for buffer estimation */
     uint64_t alpha_1024_current;
     uint64_t alpha_1024_previous;
@@ -129,8 +154,8 @@ typedef struct st_c4_state_t {
     uint64_t seed_cwin; /* Value of CWIN remembered from previous trials */
     uint64_t seed_rate; /* data rate remembered from seed cwin. */
 
+    int probe_level; /* Rate of probing, from 3.125% to 25% */
     int nb_eras_no_increase;
-    int nb_push_no_congestion; /* Number of successive pushes with no congestion */
     uint64_t push_rate_old;
     uint64_t push_alpha;
 
@@ -148,13 +173,11 @@ typedef struct st_c4_state_t {
     uint64_t ecn_ce; /* running total of ce marks */
     uint64_t ecn_threshold; /* Congestion notified if ecn_alpha > ecn_threshold */
 
-    unsigned int recovery_event_not_delay : 1;
     unsigned int congestion_notified : 1;
     unsigned int push_was_not_limited : 1;
     unsigned int use_seed_cwin : 1;
     unsigned int initial_after_jitter : 1;
-    unsigned int do_cascade : 1;
-    unsigned int do_slow_push : 1;
+    unsigned int excess_ce_after_push : 1;
     /* Handling of options. */
     char const* option_string;
 } c4_state_t;
@@ -170,13 +193,44 @@ static void c4_enter_cruise(
     c4_state_t* c4_state,
     uint64_t current_time);
 
+static void c4_notify_congestion(
+    picoquic_path_t* path_x,
+    c4_state_t* c4_state,
+    uint64_t rtt_latest,
+    c4_congestion_t c_mode,
+    uint64_t current_time);
+
+#ifdef C4_WITH_LOGGING
+/* Collect raw measurements for analysis */
+void c4_logger(picoquic_path_t* path_x, uint64_t rate_measurement, c4_state_t* c4_state,
+    picoquic_per_ack_state_t* ack_state, uint64_t beta, c4_congestion_t congestion_mode)
+{
+    picoquic_log_app_message(path_x->cnx,
+        "C4_rate, %" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%d ,%" PRIu64 ", %d, %d, %d, %d, %d, %d, %d",
+        rate_measurement, c4_state->nominal_rate,
+        (ack_state == NULL) ? 0 : ack_state->nb_bytes_delivered_since_packet_sent,
+        (ack_state == NULL) ? 0 : ack_state->rtt_measurement,
+        (ack_state == NULL) ? 0 : ack_state->send_delay,
+        c4_state->nominal_max_rtt, (int)c4_state->alg_state, path_x->bandwidth_estimate,
+        (int)(path_x->bytes_in_transit),
+        beta, congestion_mode, (int)c4_state->ecn_alpha,
+        (int)(path_x->smoothed_rtt),
+        (int)(path_x->rtt_variant),
+        (int)c4_state->alpha_1024_previous);
+}
+#define C4_LOGGER(path_x, rate_measurement, c4_state, ack_state, beta, congestion_mode) \
+    c4_logger(path_x, rate_measurement, c4_state, ack_state, beta, congestion_mode)
+#else
+#define C4_LOGGER(path_x, rate_measurement, c4_state, ack_state, beta, congestion_mode)
+#endif
+
 /* The sensitivity function provides a value from 0 to 1
 * indicating how sensitive this flow is to congestion event.
 * The idea is that flow consuming lots of resource should react
 * faster than flow that consume little, leading eventually
 * to good sharing of resource.
-*/
-/* The sensitivity will be directly translated into a packet
+* 
+* The sensitivity will be directly translated into a packet
 * loss detection threshold. We want that threshold to be very
 * high at low data rates (lower than 50kB/s), about 2% at
 * high data rate (matching the sensitivity of BBR), and 
@@ -297,9 +351,6 @@ static void c4_update_ecn_alpha(picoquic_path_t* path_x, c4_state_t* c4_state, u
             c4_state->ecn_alpha = alpha_shifted >> C4_ECN_SHIFT_G;
         }
     }
-    picoquic_log_app_message(path_x->cnx,
-        "C4-ECN: %" PRIu64 ",%d,%d,%d,%" PRIu64 ",%" PRIu64,
-        current_time, (int)delta_ect1, (int)delta_ce, (int)c4_state->ecn_alpha, path_x->cwin, path_x->rtt_sample);
 }
 
 /*
@@ -322,21 +373,18 @@ static void c4_apply_rate_and_cwin(
     }
 
     if (c4_state->alg_state == c4_initial) {
-        if (target_cwin < PICOQUIC_CWIN_INITIAL) {
-            /* target CWIN is always at least PICOQUIC_CWIN_INITIAL.
-            * If that is too much, C4 will detect congestion and exit the
-            * initial stage.
-             */
-            target_cwin = PICOQUIC_CWIN_INITIAL;
+        if (target_cwin < c4_state->initial_cwnd) {
+            target_cwin = c4_state->initial_cwnd;
         }
         /* Initial special case: bandwidth discovery */
         if (c4_state->nb_packets_in_startup > 0) {
-            uint64_t min_win = PICOQUIC_BYTES_FROM_RATE(path_x->smoothed_rtt, path_x->peak_bandwidth_estimate) / 2;
-            if (min_win > target_cwin) {
-                target_cwin = min_win;
-            }
-            if (path_x->peak_bandwidth_estimate > 2*pacing_rate) {
-                pacing_rate = path_x->peak_bandwidth_estimate / 2;
+            if (path_x->peak_bandwidth_estimate > pacing_rate) {
+                uint64_t min_win;
+                pacing_rate = (pacing_rate + path_x->peak_bandwidth_estimate) / 2;
+                min_win = PICOQUIC_BYTES_FROM_RATE(path_x->smoothed_rtt, path_x->peak_bandwidth_estimate) / 2;
+                if (min_win > target_cwin) {
+                    target_cwin = min_win;
+                }
             }
         }
         /* Initial special case: seed cwin */
@@ -348,6 +396,7 @@ static void c4_apply_rate_and_cwin(
                 pacing_rate = c4_state->seed_rate;
             }
         }
+        c4_state->initial_cwnd = target_cwin;
     }
     else {
         uint64_t delta_rtt_target = C4_RTT_MARGIN_DELAY;
@@ -381,7 +430,7 @@ static void c4_apply_rate_and_cwin(
 /* Perform evaluation. Assess whether the previous era resulted
  * in a significant increase or not.
  */
-static void c4_growth_evaluate(c4_state_t* c4_state)
+static int c4_growth_evaluate(c4_state_t* c4_state)
 {
     int is_growing = 0;
     if (c4_state->push_alpha > C4_ALPHA_PUSH_LOW_1024) {
@@ -398,14 +447,7 @@ static void c4_growth_evaluate(c4_state_t* c4_state)
         is_growing = (c4_state->nominal_rate > c4_state->push_rate_old &&
             !c4_state->congestion_notified);
     }
-    if (is_growing) {
-        c4_state->nb_push_no_congestion++;
-        c4_state->nb_eras_no_increase = 0;
-    }
-    else if (c4_state->push_was_not_limited) {
-        c4_state->nb_push_no_congestion = 0;
-        c4_state->nb_eras_no_increase++;
-    }
+    return is_growing;
 }
 
 static void c4_growth_reset(c4_state_t* c4_state)
@@ -430,7 +472,7 @@ static int c4_era_check(
         return 0;
     }
     else {
-        return (picoquic_cc_get_ack_number(path_x->cnx, path_x) >= c4_state->era_sequence);
+        return (picoquic_cc_get_lowest_not_ack(path_x) > c4_state->era_sequence);
     }
 }
 
@@ -449,7 +491,8 @@ static void c4_era_reset(
 static void c4_enter_initial(picoquic_path_t* path_x, c4_state_t* c4_state, uint64_t current_time)
 {
     c4_state->alg_state = c4_initial;
-    c4_state->nb_push_no_congestion = 0;
+    c4_state->initial_cwnd = path_x->cwin;
+    c4_state->probe_level = C4_PROBE_LEVEL_DEFAULT;
     c4_state->alpha_1024_current = C4_ALPHA_INITIAL;
     c4_state->nb_packets_in_startup = 0;
     c4_era_reset(path_x, c4_state, current_time);
@@ -468,18 +511,6 @@ static void c4_set_options(c4_state_t* c4_state)
         while ((c = *x) != 0 && !ended) {
             x++;
             switch (c) {
-            case 'K': /* allow the cascade behavior */
-                c4_state->do_cascade = 1;
-                break;
-            case 'k': /* disallow the cascade behavior */
-                c4_state->do_cascade = 0;
-                break;
-            case 'O': /* allow the slow push behavior */
-                c4_state->do_slow_push = 1;
-                break;
-            case 'o': /* disallow the slow push behavior */
-                c4_state->do_slow_push = 0;
-                break;
             default:
                 ended = 1;
                 break;
@@ -494,8 +525,6 @@ void c4_reset(c4_state_t* c4_state, picoquic_path_t* path_x, char const* option_
     c4_state->option_string = option_string;
     c4_state->running_min_rtt = UINT64_MAX;
     c4_state->alpha_1024_current = C4_ALPHA_INITIAL;
-    c4_state->do_slow_push = 1;
-    c4_state->do_cascade = 1;
     c4_set_options(c4_state);
     c4_enter_initial(path_x, c4_state, current_time);
 }
@@ -510,10 +539,18 @@ void c4_seed_cwin(c4_state_t* c4_state, picoquic_path_t* path_x, uint64_t bytes_
 
 static void c4_exit_initial(picoquic_path_t* path_x, c4_state_t* c4_state, picoquic_congestion_notification_t notification, uint64_t current_time)
 {
-    /* We assume that any required correction is done prior to calling this */
-    c4_state->nb_eras_no_increase = 0;
-    c4_state->nb_push_no_congestion = 0;
-    c4_enter_recovery(path_x, c4_state, c4_congestion_none, current_time);
+    if (c4_state->nominal_rate > 0) {
+        /* We assume that any required correction is done prior to calling this */
+        uint64_t ssthresh = c4_state->initial_cwnd / 2;
+        c4_state->nominal_max_rtt = ssthresh * 1000000 / c4_state->nominal_rate;
+        if (c4_state->nominal_max_rtt < C4_MAX_RTT_MIN) {
+            c4_state->nominal_max_rtt = C4_MAX_RTT_MIN;
+        }
+        c4_state->delay_threshold = c4_delay_threshold(c4_state);
+        c4_state->nb_eras_no_increase = 0;
+        c4_state->probe_level = C4_PROBE_LEVEL_DEFAULT;
+        c4_enter_recovery(path_x, c4_state, c4_congestion_none, current_time);
+    }
 }
 
 static void c4_initial_handle_rtt(picoquic_path_t* path_x, c4_state_t* c4_state, picoquic_congestion_notification_t notification, uint64_t rtt_measurement, uint64_t current_time)
@@ -544,6 +581,18 @@ static void c4_initial_handle_loss(picoquic_path_t* path_x, c4_state_t* c4_state
 static void c4_initial_handle_ack(picoquic_path_t* path_x, c4_state_t* c4_state, picoquic_per_ack_state_t* ack_state, uint64_t current_time)
 {
     c4_state->nb_packets_in_startup += 1;
+    /* We implement Reno style slow start, doubling the CWND every RTT, by
+    * incrementing CWND by the number of new bytes acknowledged.
+    * However, this is too aggressive at the end of the initial phase.
+    * The exit test is "3 successive RTT with no data rate increase".
+    * If the CWND keeps increasing after noticing the first increase,
+    * it grows too much and the queues build up too much. But then, the first
+    * notice can also be due to a jitter event, which causes rate measurment to be low,
+    * in which case we need  to increase the CWND to eventually catch with a new RTT.
+    * The 'shift' in the formula is a compromise, kinda similar to "Hystart++",
+    * causing the CWND to increase slower if we may be close to the exit.
+    */
+    c4_state->initial_cwnd += ack_state->nb_bytes_acknowledged >> (3 * c4_state->nb_eras_no_increase);
     if (c4_state->use_seed_cwin && c4_state->seed_rate > 0 &&
         c4_state->nominal_rate >= c4_state->seed_rate) {
         /* The nominal bandwidth is larger than the seed. The seed has been validated. */
@@ -559,7 +608,14 @@ static void c4_initial_handle_ack(picoquic_path_t* path_x, c4_state_t* c4_state,
         * nothing for several RTT, until the client asks for some data.
         * So we test that we have seen at least some data.
         */
-        c4_growth_evaluate(c4_state);
+        int is_growing = c4_growth_evaluate(c4_state);
+        if (is_growing) {
+            c4_state->nb_eras_no_increase = 0;
+        }
+        else if (c4_state->push_was_not_limited && c4_state->nominal_rate > 0) {
+            c4_state->nb_eras_no_increase++;
+        }
+        
         c4_era_reset(path_x, c4_state, current_time);
         if (c4_state->nb_eras_no_increase >= 3) {
             c4_exit_initial(path_x, c4_state, picoquic_congestion_notification_acknowledgement, current_time);
@@ -604,14 +660,6 @@ static void c4_enter_recovery(
     c4_congestion_t c_mode,
     uint64_t current_time)
 {
-    if (c_mode != c4_congestion_none) {
-        c4_state->recovery_event_not_delay = 0;
-    }
-    else {
-        c4_state->nb_push_no_congestion = 0;
-        c4_state->recovery_event_not_delay = (c_mode != c4_congestion_delay);
-    }
-
     if (c4_state->alg_state == c4_initial) {
         c4_growth_reset(c4_state);
     }
@@ -619,6 +667,7 @@ static void c4_enter_recovery(
     * will not reinitialize the state if C4 is already in recovery.
      */
     if (c4_state->alg_state != c4_recovery) {
+        c4_state->excess_ce_after_push = (c_mode != c4_congestion_ecn) ? 0 : 1;
         c4_state->alg_state = c4_recovery;
         c4_era_reset(path_x, c4_state, current_time);
         c4_state->alpha_1024_current = C4_ALPHA_RECOVER_1024;
@@ -636,7 +685,20 @@ static void c4_exit_recovery(
     c4_state_t* c4_state, uint64_t current_time)
 {
     /* Assess growth */
-    c4_growth_evaluate(c4_state);
+    int is_growing = c4_growth_evaluate(c4_state);
+    if (is_growing) {
+        if (!c4_state->excess_ce_after_push) {
+            c4_state->probe_level++;
+        }
+    }
+    else {
+        if (c4_state->push_was_not_limited) {
+            c4_state->probe_level = 1;
+            if (c4_state->excess_ce_after_push) {
+                c4_state->probe_level = 0;
+            }
+        }
+    }
     c4_growth_reset(c4_state);
     /* Reset the delay excess to avoid bounces of delay event */
     c4_state->recent_delay_excess = 0;
@@ -647,9 +709,7 @@ static void c4_exit_recovery(
     /* Reset the ecn_alpha */
     c4_state->ecn_alpha = 0;
 
-
-    /* Trigger the cascade if we have many successful pushes */
-    if (c4_state->nb_push_no_congestion >= C4_NB_PUSH_BEFORE_RESET) {
+    if (c4_state->probe_level > C4_PROBE_LEVEL_MAX) {
         c4_enter_initial(path_x, c4_state, current_time);
     }
     else {
@@ -669,27 +729,40 @@ static void c4_enter_cruise(
     c4_era_reset(path_x, c4_state, current_time);
     c4_state->use_seed_cwin = 0;
 
-    if (c4_state->nb_push_no_congestion > 0 && c4_state->do_cascade) {
+    if (c4_state->probe_level > C4_PROBE_LEVEL_DEFAULT) {
         c4_state->nb_cruise_left_before_push = 0;
     }
     else {
-        c4_state->nb_cruise_left_before_push = C4_NB_CRUISE_BEFORE_PUSH;
+        if (c4_state->nb_cruise_left_before_push == 0) {
+            c4_state->nb_cruise_left_before_push = (c4_state->probe_level == 0) ? 1 : C4_NB_CRUISE_BEFORE_PUSH;
+        }     
     }
     c4_state->alpha_1024_current = C4_ALPHA_CRUISE_1024;
+    if (path_x->smoothed_rtt < C4_MAX_RTT_MIN) {
+        /* When operating in a CPU limited environment, pacing is too
+         * conservative, and should be loosened. Ideally, we would detect
+         * the CPU limited condition by comparing pacing rate and the actual
+         * send rate, but that requires some amount of testing. In practice,
+         * we have only tested this loosening in loopback tests, so we only
+         * apply it if the RTT is below 1ms.
+         */
+        c4_state->alpha_1024_current += 48;
+    }
     c4_state->alg_state = c4_cruising;
 }
 
 /* Enter push.
-* CWIN is set C4_ALPHA_PUSH of nominal value (125%?)q
-* Ack target if set to nominal cwin times log2 of cwin.
 */
 static void c4_enter_push(
     picoquic_path_t* path_x,
     c4_state_t* c4_state,
     uint64_t current_time)
 {
+#if 1
+    c4_state->alpha_1024_current = c4_push_rate_by_probe_level[c4_state->probe_level];
+#else
     if (c4_state->nb_push_no_congestion == 0 && c4_state->do_slow_push) {
-        /* If the previous push was not successful, increase by 6.25% instead of 25% */
+        /* If the previous push was not successful reduce probe level to 1 */
         c4_state->alpha_1024_current = C4_ALPHA_PUSH_LOW_1024;
     }
     else {
@@ -703,6 +776,7 @@ static void c4_enter_push(
             c4_state->alpha_1024_current -= push_delta;
         }
     }
+#endif
     c4_state->push_alpha = c4_state->alpha_1024_current;
     c4_era_reset(path_x, c4_state, current_time);
     c4_state->alg_state = c4_pushing;
@@ -747,6 +821,11 @@ void c4_update_min_max_rtt(picoquic_path_t* path_x, c4_state_t* c4_state)
         c4_state->nominal_max_rtt = c4_state->era_max_rtt;
         c4_state->delay_threshold = c4_delay_threshold(c4_state);
     }
+
+    if (c4_state->nominal_max_rtt < C4_MAX_RTT_MIN) {
+        c4_state->nominal_max_rtt = C4_MAX_RTT_MIN;
+        c4_state->delay_threshold = c4_delay_threshold(c4_state);
+    }
 }
 
 /* Handle data ack event.
@@ -757,22 +836,12 @@ void c4_handle_ack(picoquic_path_t* path_x, c4_state_t* c4_state, picoquic_per_a
     uint64_t rate_measurement = 0;
 
     if (ack_state->rtt_measurement > 0 && ack_state->nb_bytes_delivered_since_packet_sent > 0) {
-        uint64_t verified_rtt = (ack_state->rtt_measurement > ack_state->send_delay) ?
-            ack_state->rtt_measurement : ack_state->send_delay;
-        rate_measurement = PICOQUIC_RATE_FROM_BYTES(ack_state->nb_bytes_delivered_since_packet_sent,
-            verified_rtt);
 
-#ifdef C4_WITH_LOGGING
-        /* Collect raw measurements for analysis */
-        picoquic_log_app_message(path_x->cnx,
-            "C4_rate, %" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%d ,%" PRIu64 ", %d",
-            rate_measurement, c4_state->nominal_rate, 
-            ack_state->nb_bytes_delivered_since_packet_sent, ack_state->rtt_measurement, ack_state->send_delay,
-            c4_state->nominal_max_rtt, (int)c4_state->alg_state, path_x->bandwidth_estimate, c4_state->congestion_notified);
-#endif
+        rate_measurement = path_x->bandwidth_estimate;
+        C4_LOGGER(path_x, rate_measurement, c4_state, ack_state, 0, 0);
 
         /* Assessment of rate limited status */
-        if (rate_measurement > c4_state->nominal_rate  && 
+        if (rate_measurement > c4_state->nominal_rate &&
             !(c4_state->alg_state == c4_recovery && c4_state->congestion_notified != 0)) {
             c4_state->push_was_not_limited = 1;
             c4_state->nominal_rate = rate_measurement;
@@ -797,9 +866,18 @@ void c4_handle_ack(picoquic_path_t* path_x, c4_state_t* c4_state, picoquic_per_a
         if (c4_era_check(path_x, c4_state)) {
             /* Update max rtt and running min rtt */
             c4_update_min_max_rtt(path_x, c4_state);
-            /* test need to reenter initial if conditions did change */
+            /* The initial phase may have exited too early if we have both high jitter and competition
+            * from other flows. Finding an RTT higher than the previous max is an indication that
+            * the previous initial might have exited too soon, especially if the difference between
+            * max RTT and min RTT is large. Reentering Initial remedies that.
+            * However, reentering Initial is a bit of a hack. It is OK in the high jitter or
+            * competition secnarios, but it can backfire and cause congestion and losses. So we don't
+            * do that if the RTT is low (lower than 50ms) or if the data rate is high enough
+            * (higher than 1Mbps, i.e., 8Mbps). And we only do that once per connection.
+            */
             if (!c4_state->initial_after_jitter &&
                 c4_state->nominal_max_rtt > 50000 &&
+                c4_state->nominal_rate < 1000000 &&
                 5 * c4_state->running_min_rtt < 2 * c4_state->nominal_max_rtt) {
                 c4_state->initial_after_jitter = 1;
                 c4_enter_initial(path_x, c4_state, current_time);
@@ -851,12 +929,6 @@ static void c4_notify_congestion(
     uint64_t beta = C4_BETA_LOSS_1024;
     c4_state->congestion_notified = 1;
 
-    if (c4_state->alg_state == c4_recovery &&
-        (c_mode != c4_congestion_delay || !c4_state->recovery_event_not_delay)) {
-        /* Do not treat additional events during same freeze interval */
-        return;
-    }
-
     if (c_mode == c4_congestion_loss) {
         /* Make amount of slow down function of sensitivity,
         * for better fairness between C4 connections.
@@ -890,18 +962,36 @@ static void c4_notify_congestion(
         c4_state->recent_delay_excess = 0;
     }
 
-    if (c4_state->alg_state == c4_pushing) {
-        c4_state->nb_push_no_congestion = 0;
-    }
-    else {
-        c4_state->nominal_rate -= MULT1024(beta, c4_state->nominal_rate);
-        if (c_mode == c4_congestion_loss) {
-            c4_state->nominal_max_rtt -= MULT1024(beta, c4_state->nominal_max_rtt);
-            c4_state->delay_threshold = c4_delay_threshold(c4_state);
+
+    if (c4_state->alg_state == c4_recovery) {
+        if (c4_state->alpha_1024_current == C4_ALPHA_RECOVER_1024) {
+            /* Congestion notification after entering recovery 
+             * indicates that queues are building up. It is thus
+             * prudent to decrease "alpha_current" and to spend a bit
+             * more time in recovery, to reduce these queues. */
+            c4_state->alpha_1024_current = C4_ALPHA_RECOVER2_1024;
+            c4_state->era_sequence = picoquic_cc_get_sequence_number(path_x->cnx, path_x);
+            C4_LOGGER(path_x, 0, c4_state, NULL, beta, c_mode);
+        }
+        if (c_mode == c4_congestion_ecn) {
+            c4_state->excess_ce_after_push = 1;
         }
     }
-
-    c4_enter_recovery(path_x, c4_state, c_mode, current_time);
+    else
+    {
+        if (c4_state->alg_state != c4_pushing) {
+            c4_state->nominal_rate -= MULT1024(beta, c4_state->nominal_rate);
+            if (c_mode == c4_congestion_loss) {
+                c4_state->nominal_max_rtt -= MULT1024(beta, c4_state->nominal_max_rtt);
+                if (c4_state->nominal_max_rtt < C4_MAX_RTT_MIN) {
+                    c4_state->nominal_max_rtt = C4_MAX_RTT_MIN;
+                }
+                c4_state->delay_threshold = c4_delay_threshold(c4_state);
+            }
+            C4_LOGGER(path_x, 0, c4_state, NULL, beta, c_mode);
+        }
+        c4_enter_recovery(path_x, c4_state, c_mode, current_time);
+    }
 
     c4_apply_rate_and_cwin(path_x, c4_state);
 
@@ -930,6 +1020,10 @@ static void c4_update_rtt(
     }
     if (c4_state->nominal_max_rtt == 0) {
         c4_state->nominal_max_rtt = rtt_measurement;
+        if (c4_state->nominal_max_rtt < C4_MAX_RTT_MIN) {
+            c4_state->nominal_max_rtt = C4_MAX_RTT_MIN;
+        }
+        c4_state->delay_threshold = c4_delay_threshold(c4_state);
         c4_state->recent_delay_excess = 0;
     }
     else {
@@ -987,7 +1081,17 @@ void c4_notify(
             c4_state->ecn_threshold = c4_ecn_threshold(c4_state);
             c4_update_ecn_alpha(path_x, c4_state, current_time);
             if (c4_state->ecn_alpha > c4_state->ecn_threshold) {
-                c4_notify_congestion(path_x, c4_state, 0, c4_congestion_ecn, current_time);
+                if (c4_state->alg_state == c4_initial) {
+                    if (c4_state->recent_delay_excess > 0
+                        && c4_state->nb_eras_no_increase > 1
+                        && c4_state->push_rate_old >= c4_state->nominal_rate) {
+
+                        c4_exit_initial(path_x, c4_state, picoquic_congestion_notification_ecn_ec, current_time);
+                    }
+                }
+                else {
+                    c4_notify_congestion(path_x, c4_state, 0, c4_congestion_ecn, current_time);
+                }
             }
             break;
         case picoquic_congestion_notification_repeat:
@@ -1060,7 +1164,7 @@ void c4_observe(picoquic_path_t* path_x, uint64_t* cc_state, uint64_t* cc_param)
 #define C4_ID "c4" 
 
 picoquic_congestion_algorithm_t c4_algorithm_struct = {
-    C4_ID, PICOQUIC_CC_ALGO_NUMBER_C4,
+    C4_ID, PICOQUIC_CC_ALGO_NUMBER_C4, PICOQUIC_ECN_ECT_1,
     c4_init,
     c4_notify,
     c4_delete,

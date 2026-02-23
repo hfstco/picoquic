@@ -209,11 +209,11 @@ int picoquic_flow_control_check_stream_offset(picoquic_cnx_t* cnx, picoquic_stre
 
         uint64_t new_bytes = new_fin_offset - stream->fin_offset;
 
-        if (new_bytes > cnx->maxdata_local || cnx->maxdata_local - new_bytes < cnx->data_received) {
+        if (new_bytes > cnx->maxdata_local || cnx->maxdata_local - new_bytes < cnx->offset_received) {
             /* protocol violation */
             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FLOW_CONTROL_ERROR, 0);
         } else {
-            cnx->data_received += new_bytes;
+            cnx->offset_received += new_bytes;
             stream->fin_offset = new_fin_offset;
         }
     }
@@ -302,6 +302,14 @@ void picoquic_signal_stream_reset(picoquic_cnx_t* cnx, picoquic_stream_head_t* s
 
     if (cnx->callback_fn != NULL && !stream->reset_signalled) {
         if (!stream->is_discarded) {
+            /* Update the flow control data to reflect that buffers are now discarded */
+            if (stream->consumed_offset < stream->fin_offset) {
+                uint64_t delta = stream->fin_offset - stream->consumed_offset;
+                if (cnx->offset_received > delta) {
+                    cnx->offset_received -= delta;
+                }
+            }
+            /* Signal the reset to the application. */
             if (cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_reset,
                 cnx->callback_ctx, stream->app_stream_ctx) != 0) {
                 picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR,
@@ -1246,6 +1254,7 @@ static void picoquic_stream_data_chunk_callback(picoquic_cnx_t* cnx, picoquic_st
     int call_back_needed = data_length > 0;
 
     stream->consumed_offset += data_length;
+    cnx->data_received += data_length;
 
     if (stream->reset_received && !stream->reset_signalled && stream->consumed_offset >= stream->reset_offset) {
         picoquic_signal_stream_reset(cnx, stream);
@@ -5303,8 +5312,8 @@ uint8_t * picoquic_format_first_datagram_frame(picoquic_cnx_t* cnx, uint8_t* byt
 
         if (frame_content[0] == picoquic_frame_type_datagram_l) {
             /* It might be possible to squeeze the size by removing the length */
-            size_t header_length = picoquic_varint_skip(frame_content + 1);
-            size_t data_length = cnx->first_datagram->length - header_length - 1;
+            size_t header_length = 1 + picoquic_varint_skip(frame_content + 1);
+            size_t data_length = cnx->first_datagram->length - header_length;
             size_t min_length = data_length + 1;
 
             if (bytes + min_length <= bytes_max) {
@@ -6734,11 +6743,11 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, picoquic_path_t * path_x, const 
                 break;
             case picoquic_frame_type_connection_close:
                 bytes = picoquic_decode_connection_close_frame(cnx, bytes, bytes_max);
-                ack_needed = 1;
+                ack_needed = 0;
                 break;
             case picoquic_frame_type_application_close:
                 bytes = picoquic_decode_application_close_frame(cnx, bytes, bytes_max);
-                ack_needed = 1;
+                ack_needed = 0;
                 break;
             case picoquic_frame_type_max_data:
                 bytes = picoquic_decode_max_data_frame(cnx, bytes, bytes_max);
@@ -7085,12 +7094,12 @@ int picoquic_skip_frame(const uint8_t* bytes, size_t bytes_maxsize, size_t* cons
             break;
         case picoquic_frame_type_connection_close: {
             bytes = picoquic_skip_connection_close_frame(bytes, bytes_max);
-            *pure_ack = 0;
+            *pure_ack = 1;
             break;
         }
         case picoquic_frame_type_application_close: {
             bytes = picoquic_skip_application_close_frame(bytes, bytes_max);
-            *pure_ack = 0;
+            *pure_ack = 1;
             break;
         }
         case picoquic_frame_type_max_data:

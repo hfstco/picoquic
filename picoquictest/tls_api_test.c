@@ -35,6 +35,7 @@
 #include "csv.h"
 #include "qlog.h"
 #include "autoqlog.h"
+#include "picoquic_qlog.h"
 #include "picoquic_logger.h"
 #include "performance_log.h"
 #include "picoquictest.h"
@@ -625,7 +626,8 @@ int test_api_callback(picoquic_cnx_t* cnx,
     if (fin_or_event == picoquic_callback_close ||
         fin_or_event == picoquic_callback_application_close ||
         fin_or_event == picoquic_callback_almost_ready ||
-        fin_or_event == picoquic_callback_ready) {
+        fin_or_event == picoquic_callback_ready ||
+        fin_or_event == picoquic_callback_app_wakeup) {
         /* do nothing in our tests */
         return 0;
     }
@@ -1770,6 +1772,20 @@ int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                             picoquic_store_addr(&packet->addr_from, (struct sockaddr*) & addr_from);
                             picoquic_store_addr(&packet->addr_to, (struct sockaddr*) & addr_to);
                             packet->ecn_mark = test_ctx->packet_ecn_default;
+#if 1
+                            if (test_ctx->ecn_support) {
+                                if (next_action == sim_action_server_departure) {
+                                    if (test_ctx->qserver->default_congestion_alg != NULL) {
+                                        packet->ecn_mark = test_ctx->qserver->default_congestion_alg->ecn_mark;
+                                    }
+                                }
+                                else {
+                                    if (test_ctx->qclient->default_congestion_alg != NULL) {
+                                        packet->ecn_mark = test_ctx->qclient->default_congestion_alg->ecn_mark;
+                                    }
+                                }
+                            }
+#endif
                             packet->length = send_length - size_sent;
                             if (packet->length > segment_size) {
                                 packet->length = segment_size;
@@ -2326,6 +2342,96 @@ int tls_api_inject_hs_ack_test()
     if (test_ctx != NULL) {
         tls_api_delete_ctx(test_ctx);
         test_ctx = NULL;
+    }
+
+    return ret;
+}
+
+int tls_exporter_test()
+{
+    uint64_t simulated_time = 0;
+    uint64_t loss_mask = 0;
+    picoquic_test_tls_api_ctx_t *test_ctx = NULL;
+
+    int ret = tls_api_init_ctx(&test_ctx, PICOQUIC_INTERNAL_TEST_VERSION_1, PICOQUIC_TEST_SNI,
+                               PICOQUIC_TEST_ALPN, &simulated_time, NULL, NULL, 0, 0, 0);
+
+    if (ret == 0) {
+        if (test_ctx->qclient != NULL) {
+            picoquic_free(test_ctx->qclient);
+            test_ctx->qclient = NULL;
+            test_ctx->cnx_client = NULL;
+        }
+
+        test_ctx->qclient = picoquic_create(8, NULL, NULL, NULL, NULL, test_api_callback,
+                                            (void *)&test_ctx->client_callback, NULL, NULL, NULL,
+                                            simulated_time, &simulated_time, NULL, NULL, 0);
+
+        if (test_ctx->qclient == NULL) {
+            ret = -1;
+        }
+    }
+
+    if (ret == 0) {
+        picoquic_set_use_exporter(test_ctx->qclient, 1);
+        picoquic_set_use_exporter(test_ctx->qserver, 1);
+    }
+
+    if (ret == 0) {
+        test_ctx->cnx_client = picoquic_create_cnx(test_ctx->qclient, picoquic_null_connection_id,
+                                                   picoquic_null_connection_id,
+                                                   (struct sockaddr *)&test_ctx->server_addr, 0, 0,
+                                                   PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, 1);
+
+        if (test_ctx->cnx_client == NULL) {
+            ret = -1;
+        }
+    }
+
+    if (ret == 0) {
+        ret = picoquic_start_client_cnx(test_ctx->cnx_client);
+    }
+
+    if (ret == 0) {
+        ret = tls_api_connection_loop(test_ctx, &loss_mask, 0, &simulated_time);
+    }
+
+    if (ret == 0) {
+        const char *label = "tls api test";
+        const size_t export_key_len = 16;
+        unsigned char client_export_key[16] = { 0 };
+        unsigned char server_export_key[16] = { 0 };
+
+        picoquic_cnx_t *client_cnx = test_ctx->cnx_client;
+        picoquic_cnx_t *server_cnx = test_ctx->cnx_server;
+
+        if (client_cnx == NULL || server_cnx == NULL) {
+            ret = -1;
+        }
+
+        if (ret == 0) {
+            int r = picoquic_export_secret(client_cnx, label, client_export_key, export_key_len);
+            if (r != 0) {
+                ret = -1;
+            }
+        }
+
+        if (ret == 0) {
+            int r = picoquic_export_secret(server_cnx, label, server_export_key, export_key_len);
+            if (r != 0) {
+                ret = -1;
+            }
+        }
+
+        if (ret == 0) {
+            if (memcmp(client_export_key, server_export_key, export_key_len) != 0) {
+                ret = -1;
+            }
+        }
+    }
+
+    if (test_ctx != NULL) {
+        tls_api_delete_ctx(test_ctx);
     }
 
     return ret;
@@ -4226,8 +4332,7 @@ int session_resume_test()
  */
 void multipath_init_params(picoquic_tp_t* test_parameters, int enable_time_stamp);
 
-int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss, 
-    unsigned int no_coal, unsigned int long_data, uint64_t extra_delay, int do_multipath)
+int zero_rtt_test_one(zero_rtt_test_t * zrt)
 {
     uint64_t simulated_time = 0;
     picoquic_test_tls_api_ctx_t* test_ctx = NULL;
@@ -4245,29 +4350,32 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
     for (int i = 0; i < 2; i++) {
         /* Insert a delay before the second connection attempt */
         if (i == 1) {
-            simulated_time += extra_delay;
+            simulated_time += zrt->extra_delay;
         }
         /* Set up the context, while setting the ticket store parameter for the client */
         if (ret == 0) {
             ret = tls_api_init_ctx(&test_ctx, 
                 (i==0)?0: proposed_version, sni, alpn, &simulated_time, ticket_file_name, NULL, 0, 1,
-                (i == 0)?0:use_badcrypt);
+                (i == 0)?0: zrt->use_badcrypt);
 
-            if (ret == 0 && no_coal) {
+            if (ret == 0 && zrt->no_coal) {
                 test_ctx->qserver->dont_coalesce_init = 1;
             }
 
-            if (ret == 0 && hardreset != 0 && i == 1) {
+            if (ret == 0 && zrt->hardreset != 0 && i == 1) {
                 picoquic_set_cookie_mode(test_ctx->qserver, 1);
             }
 
-            if (ret == 0 && do_multipath) {
+            if (ret == 0 && zrt->do_multipath) {
                 /* Set the multipath option at both client and server */
                 multipath_init_params(&server_parameters, 0);
                 picoquic_set_default_tp(test_ctx->qserver, &server_parameters);
-                test_ctx->cnx_client->local_parameters.is_multipath_enabled = 1;
                 test_ctx->cnx_client->local_parameters.initial_max_path_id = 3;
                 test_ctx->cnx_client->local_parameters.enable_time_stamp = 0;
+            }
+
+            if (ret == 0 && zrt->propose_ech) {
+                ret = picoquic_ech_configure_quic_ctx(test_ctx->qclient, NULL, NULL);
             }
 
             if (ret == 0) {
@@ -4281,7 +4389,7 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
             test_ctx->c_to_s_link->microsec_latency = 50000ull;
             test_ctx->s_to_c_link->microsec_latency = 50000ull;
 
-            if (long_data) {
+            if (zrt->long_data) {
                 for (uint64_t x = 0; x <= 16; x++) {
                     uint64_t stream_id = 4u * x + 4u;
                     test_ctx->nb_test_streams = (size_t)(x + 1);
@@ -4306,8 +4414,8 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
                 }
             }
 
-            if (early_loss > 0) {
-                loss_mask = early_loss;
+            if (zrt->early_loss > 0) {
+                loss_mask = zrt->early_loss;
             }
         }
 
@@ -4316,11 +4424,11 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
 
             if (ret != 0) {
                 DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), connection %d fails (0x%x)\n",
-                    use_badcrypt, hardreset, i, ret);
+                    zrt->use_badcrypt, zrt->hardreset, i, ret);
             }
         }
 
-        if (ret == 0 && use_badcrypt == 0 && hardreset == 0) {
+        if (ret == 0 && zrt->use_badcrypt == 0 && zrt->hardreset == 0) {
             int rtt_is_available = picoquic_is_0rtt_available(test_ctx->cnx_client);
 
             if ((rtt_is_available && i == 0) ||
@@ -4331,11 +4439,11 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
 
         if (ret == 0 && i == 1) {
             /* If resume succeeded, the second connection will have a type "PSK" */
-            if (use_badcrypt == 0 && hardreset == 0 && (
+            if (zrt->use_badcrypt == 0 && zrt->hardreset == 0 && (
                 picoquic_tls_is_psk_handshake(test_ctx->cnx_server) == 0 || 
                 picoquic_tls_is_psk_handshake(test_ctx->cnx_client) == 0)) {
                 DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), connection %d not PSK.\n",
-                    use_badcrypt, hardreset, i);
+                    zrt->use_badcrypt, zrt->hardreset, i);
                 ret = -1;
             } else {
                 /* run a receive loop until no outstanding data */
@@ -4343,7 +4451,7 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
             }
         }
 
-        if (ret == 0 && i == 1 && do_multipath) {
+        if (ret == 0 && i == 1 && zrt->do_multipath) {
             /* verify that multipath was negotiated */
             if (!test_ctx->cnx_client->is_multipath_enabled ||
                 !test_ctx->cnx_server->is_multipath_enabled) {
@@ -4370,54 +4478,54 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
 
             if (ret != 0) {
                 DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), connection %d close error (0x%x).\n",
-                    use_badcrypt, hardreset, i, ret);
+                    zrt->use_badcrypt, zrt->hardreset, i, ret);
             }
         }
 
         /* Verify that the 0RTT data was sent and acknowledged */
         if (ret == 0 && i == 1) {
-            if (use_badcrypt == 0 && hardreset == 0) {
+            if (zrt->use_badcrypt == 0 && zrt->hardreset == 0) {
                 if (test_ctx->cnx_client->nb_zero_rtt_sent == 0) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), no zero RTT sent.\n",
-                        use_badcrypt, hardreset);
+                        zrt->use_badcrypt, zrt->hardreset);
                     ret = -1;
                 }
-                else if (early_loss == 0 &&
+                else if (zrt->early_loss == 0 &&
                     test_ctx->cnx_client->nb_zero_rtt_acked != test_ctx->cnx_client->nb_zero_rtt_sent) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), no zero RTT acked.\n",
-                        use_badcrypt, hardreset);
+                        zrt->use_badcrypt, zrt->hardreset);
                     ret = -1;
                 }
-                else if (early_loss == 0 && no_coal && test_ctx->cnx_server != NULL &&
+                else if (zrt->early_loss == 0 && zrt->no_coal && test_ctx->cnx_server != NULL &&
                         test_ctx->cnx_client->nb_zero_rtt_sent != test_ctx->cnx_server->nb_zero_rtt_received) {
                     DBG_PRINTF("Zero RTT test sent %d 0RTT, received %d\n",
                         test_ctx->cnx_client->nb_zero_rtt_sent, test_ctx->cnx_server->nb_zero_rtt_received);
                     ret = -1;
                 }
-                else if (long_data && test_ctx->cnx_client->nb_zero_rtt_sent < 3) {
+                else if (zrt->long_data && test_ctx->cnx_client->nb_zero_rtt_sent < 3) {
                     DBG_PRINTF("Zero RTT long test (badcrypt: %d, hard: %d), only %d zero RTT sent.\n",
-                        use_badcrypt, hardreset, (int)test_ctx->cnx_client->nb_zero_rtt_sent);
+                        zrt->use_badcrypt, zrt->hardreset, (int)test_ctx->cnx_client->nb_zero_rtt_sent);
                     ret = -1;
                 }
             } else {
                 if (test_ctx->cnx_client->nb_zero_rtt_sent == 0) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), no zero RTT sent.\n",
-                        use_badcrypt, hardreset);
+                        zrt->use_badcrypt, zrt->hardreset);
                     ret = -1;
                 }
-                else if (early_loss == 0 && hardreset == 0 && test_ctx->cnx_client->nb_zero_rtt_acked != 0) {
+                else if (zrt->early_loss == 0 && zrt->hardreset == 0 && test_ctx->cnx_client->nb_zero_rtt_acked != 0) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), zero acked, not expected.\n",
-                        use_badcrypt, hardreset);
+                        zrt->use_badcrypt, zrt->hardreset);
                     ret = -1;
                 }
                 else if (test_ctx->sum_data_received_at_server == 0) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d, loss: %d), no data received.\n",
-                        use_badcrypt, hardreset, early_loss);
+                        zrt->use_badcrypt, zrt->hardreset, zrt->early_loss);
                     ret = -1;
                 }
                 else if (test_ctx->cnx_client->did_receive_short_initial) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), server sent unpadded initial.\n",
-                        use_badcrypt, hardreset);
+                        zrt->use_badcrypt, zrt->hardreset);
                     ret = -1;
                 }
             }
@@ -4427,13 +4535,13 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
         if (ret == 0) {
             if (test_ctx->qclient->p_first_ticket == NULL) {
                 DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), cnx %d, no ticket received.\n",
-                    use_badcrypt, hardreset, i);
+                    zrt->use_badcrypt, zrt->hardreset, i);
                 ret = -1;
             } else {
                 ret = picoquic_save_tickets(test_ctx->qclient->p_first_ticket, simulated_time, ticket_file_name);
                 if (ret != 0) {
                     DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), cnx %d, ticket save error (0x%x).\n",
-                        use_badcrypt, hardreset, i, ret);
+                        zrt->use_badcrypt, zrt->hardreset, i, ret);
                 }
             }
         }
@@ -4454,7 +4562,8 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, uint64_t early_loss,
 
 int zero_rtt_test()
 {
-    return zero_rtt_test_one(0, 0, 0, 0, 0, 0, 0);
+    zero_rtt_test_t zrt = { 0 };
+    return zero_rtt_test_one(&zrt);
 }
 
 /*
@@ -4472,8 +4581,10 @@ int zero_rtt_loss_test()
     int ret = 0;
 
     for (unsigned int i = 1; ret == 0 && i < 16; i++) {
-        uint64_t early_loss = 1ull << i;
-        ret = zero_rtt_test_one(0, 0, early_loss, 0, 0, 0, 0);
+        zero_rtt_test_t zrt = { 0 };
+        zrt.early_loss = 1ull << i;
+
+        ret = zero_rtt_test_one(&zrt);
         if (ret != 0) {
             DBG_PRINTF("Zero RTT test fails when packet #%d is lost.\n", i);
         }
@@ -4491,7 +4602,9 @@ int zero_rtt_loss_test()
 
 int zero_rtt_spurious_test()
 {
-    return zero_rtt_test_one(1, 0, 0, 0, 0, 0, 0);
+    zero_rtt_test_t zrt = { 0 };
+    zrt.use_badcrypt = 1;
+    return zero_rtt_test_one(&zrt);
 }
 
 /*
@@ -4503,7 +4616,9 @@ int zero_rtt_spurious_test()
 
 int zero_rtt_retry_test()
 {
-    return zero_rtt_test_one(0, 1, 0, 0, 0, 0, 0);
+    zero_rtt_test_t zrt = { 0 };
+    zrt.hardreset = 1;
+    return zero_rtt_test_one(&zrt);
 }
 
 /*
@@ -4515,7 +4630,9 @@ int zero_rtt_retry_test()
 
 int zero_rtt_no_coal_test()
 {
-    return zero_rtt_test_one(0, 0, 0, 1, 0, 0, 0);
+    zero_rtt_test_t zrt = { 0 };
+    zrt.no_coal = 1;
+    return zero_rtt_test_one(&zrt);
 }
 
 /* Test the robustness of the connection in a zero RTT scenario,
@@ -4531,6 +4648,7 @@ int zero_rtt_many_losses_test()
     for (int i = 0; ret == 0 && i < 50; i++)
     {
         uint64_t loss_mask = 0;
+        zero_rtt_test_t zrt = { 0 };
 
         for (int j = 0; j < 64; j++)
         {
@@ -4540,8 +4658,8 @@ int zero_rtt_many_losses_test()
                 loss_mask |= 1;
             }
         }
-
-        ret = zero_rtt_test_one(0, 0, loss_mask, 0, 0, 0, 0);
+        zrt.early_loss = loss_mask;
+        ret = zero_rtt_test_one(&zrt);
         if (ret != 0) {
             DBG_PRINTF("Handshake fails for mask %d, mask = %llx", i, (unsigned long long)loss_mask);
         }
@@ -4555,7 +4673,9 @@ int zero_rtt_many_losses_test()
 
 int zero_rtt_long_test()
 {
-    return zero_rtt_test_one(0, 0, 0, 0, 1, 0, 0);
+    zero_rtt_test_t zrt = { 0 };
+    zrt.long_data = 1;
+    return zero_rtt_test_one(&zrt);
 }
 
 /*
@@ -4568,14 +4688,18 @@ int zero_rtt_delay_test()
     int bad_ret;
     const uint64_t nominal_delay_sec = 100000;
     const uint64_t nominal_delay = nominal_delay_sec * 1000000;
+    zero_rtt_test_t zrt = { 0 };
+    zrt.long_data = 1;
+    zrt.extra_delay = nominal_delay + 1000000;
 
-    bad_ret = zero_rtt_test_one(0, 0, 0, 0, 1, nominal_delay + 1000000, 0);
+    bad_ret = zero_rtt_test_one(&zrt);
     if (bad_ret == 0) {
         DBG_PRINTF("Zero RTT succeed despite delay = %" PRIu64, " + 1 second.", nominal_delay_sec);
         ret = -1;
     }
     else {
-        ret = zero_rtt_test_one(0, 0, 0, 0, 1, nominal_delay - 2000000, 0);
+        zrt.extra_delay = nominal_delay - 2000000;
+        ret = zero_rtt_test_one(&zrt);
         if (ret != 0) {
             DBG_PRINTF("Zero RTT fails for delay = %" PRIu64, " - 2 seconds.", nominal_delay_sec);
         }
@@ -4583,6 +4707,18 @@ int zero_rtt_delay_test()
 
     return ret;
 }
+
+/*
+* 0-RTT ech. Verify that the 0 RTT works even greasing ech
+*/
+
+int zero_rtt_ech_test()
+{
+    zero_rtt_test_t zrt = { 0 };
+    zrt.propose_ech = 1;
+    return zero_rtt_test_one(&zrt);
+}
+
 /*
  * Stop sending test. Start a long transmission, but after receiving some bytes,
  * send a stop sending request. Then ask for another transmission. The
@@ -4835,7 +4971,7 @@ static int mtu_drop_cc_algotest(picoquic_congestion_algorithm_t* cc_algo, uint64
         test_ctx->s_to_c_link->picosec_per_byte = picosec_1mbps;
         /* Set the CC algorithm to selected value */
         picoquic_set_default_congestion_algorithm(test_ctx->qserver, cc_algo);
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qserver->use_long_log = 1;
     }
 
@@ -5454,29 +5590,22 @@ int set_certificate_and_key_test()
     return ret;
 }
 
-int request_client_authentication_test()
+int request_client_authentication_test_one(const char *test_client_cert_file,
+                                           const char *test_client_key_file,
+                                           const char *test_server_cert_file,
+                                           const char *test_server_key_file,
+                                           const char *test_ca_cert_store_file)
 {
     uint64_t simulated_time = 0;
     uint64_t loss_mask = 0;
-    picoquic_test_tls_api_ctx_t* test_ctx = NULL;
-    char test_server_cert_file[512];
-    char test_server_key_file[512];
-    char test_server_cert_store_file[512];
-    int ret = picoquic_get_input_path(test_server_cert_file, sizeof(test_server_cert_file), picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_CERT);
-
-    if (ret == 0) {
-        ret = picoquic_get_input_path(test_server_key_file, sizeof(test_server_key_file), picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_KEY);
-    }
-
-    if (ret == 0) {
-        ret = picoquic_get_input_path(test_server_cert_store_file, sizeof(test_server_cert_store_file), picoquic_solution_dir, PICOQUIC_TEST_FILE_CERT_STORE);
-    }
+    picoquic_test_tls_api_ctx_t *test_ctx = NULL;
+    int ret = 0;
 
     if (ret != 0) {
         DBG_PRINTF("%s", "Cannot set the cert, key or store file names.\n");
-    }
-    else {
-        ret = tls_api_init_ctx(&test_ctx, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time, NULL, NULL, 0, 0, 0);
+    } else {
+        ret = tls_api_init_ctx(&test_ctx, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time,
+                               NULL, NULL, 0, 0, 0);
     }
 
     if (ret == 0 && test_ctx == NULL) {
@@ -5484,33 +5613,43 @@ int request_client_authentication_test()
     }
 
     /* Delete the client context, and recreate with a certificate */
-    if (ret == 0)
-    {
+    if (ret == 0) {
         if (test_ctx->qclient != NULL) {
             picoquic_free(test_ctx->qclient);
             test_ctx->cnx_client = NULL;
         }
 
-        test_ctx->qclient = picoquic_create(8,
-            test_server_cert_file, test_server_key_file, test_server_cert_store_file,
-            NULL, test_api_callback, (void*)&test_ctx->client_callback, NULL, NULL, NULL,
-            simulated_time, &simulated_time, NULL, NULL, 0);
+        test_ctx->qclient = picoquic_create(8, test_client_cert_file, test_client_key_file,
+                                            test_ca_cert_store_file, NULL, test_api_callback,
+                                            (void *)&test_ctx->client_callback, NULL, NULL, NULL,
+                                            simulated_time, &simulated_time, NULL, NULL, 0);
 
         if (test_ctx->qclient == NULL) {
             ret = -1;
-        }
-        else {
+        } else {
             /* Enforce client only mode on the client side. */
             picoquic_enforce_client_only(test_ctx->qclient, 1);
         }
+
+        if (test_ctx->qserver != NULL) {
+            picoquic_free(test_ctx->qserver);
+            test_ctx->cnx_client = NULL;
+        }
+
+        test_ctx->qserver = picoquic_create(8, test_server_cert_file, test_server_key_file,
+                                            test_ca_cert_store_file, PICOQUIC_TEST_ALPN,
+                                            test_api_callback, (void *)&test_ctx->server_callback,
+                                            NULL, NULL, NULL, simulated_time, &simulated_time, NULL,
+                                            test_ticket_encrypt_key,
+                                            sizeof(test_ticket_encrypt_key));
     }
 
     /* recreate the client connection */
     if (ret == 0) {
         test_ctx->cnx_client = picoquic_create_cnx(test_ctx->qclient, picoquic_null_connection_id,
                                                    picoquic_null_connection_id,
-                                                   (struct sockaddr*)&test_ctx->server_addr, 0,
-                                                   0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, 1);
+                                                   (struct sockaddr *)&test_ctx->server_addr, 0, 0,
+                                                   PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, 1);
 
         if (test_ctx->cnx_client == NULL) {
             ret = -1;
@@ -5521,17 +5660,15 @@ int request_client_authentication_test()
 
     if (ret == 0) {
         picoquic_set_client_authentication(test_ctx->qserver, 1);
-        
+
         /* Proceed with the connection loop. */
         ret = tls_api_connection_loop(test_ctx, &loss_mask, 0, &simulated_time);
     }
-  
+
     /* Check that both the client and server are ready. */
     if (ret == 0) {
-        if (test_ctx->cnx_client == NULL
-            || test_ctx->cnx_server == NULL
-            || !TEST_CLIENT_READY
-            || !TEST_SERVER_READY) {
+        if (test_ctx->cnx_client == NULL || test_ctx->cnx_server == NULL || !TEST_CLIENT_READY ||
+            !TEST_SERVER_READY) {
             ret = -1;
         }
     }
@@ -5539,6 +5676,97 @@ int request_client_authentication_test()
     if (test_ctx != NULL) {
         tls_api_delete_ctx(test_ctx);
         test_ctx = NULL;
+    }
+
+    return ret;
+}
+
+int request_client_authentication_test()
+{
+    char test_client_cert_file[512];
+    char test_client_key_file[512];
+    char test_server_cert_file[512];
+    char test_server_key_file[512];
+    char test_ca_cert_store_file[512];
+    int ret = 0;
+
+    ret = picoquic_get_input_path(test_client_cert_file, sizeof(test_client_cert_file),
+                                  picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_CERT_RSA);
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_client_key_file, sizeof(test_client_key_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_KEY_RSA);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_server_cert_file, sizeof(test_server_cert_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_CERT);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_server_key_file, sizeof(test_server_key_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_KEY);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_ca_cert_store_file, sizeof(test_ca_cert_store_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_CERT_STORE);
+    }
+
+    if (ret == 0) {
+        ret = request_client_authentication_test_one(test_client_cert_file, test_client_key_file,
+                                                     test_server_cert_file, test_server_key_file,
+                                                     test_ca_cert_store_file);
+    }
+
+    if (ret != 0) {
+        DBG_PRINTF("%s", "mTLS client-auth test failed RSA\n");
+    }
+
+    return ret;
+}
+
+int request_client_authentication_25519_test()
+{
+    char test_client_cert_file[512];
+    char test_client_key_file[512];
+    char test_server_cert_file[512];
+    char test_server_key_file[512];
+    char test_ca_cert_store_file[512];
+    int ret = 0;
+
+    ret = picoquic_get_input_path(test_client_cert_file, sizeof(test_client_cert_file),
+                                  picoquic_solution_dir, PICOQUIC_TEST_FILE_CLIENT_CERT_ED25519);
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_client_key_file, sizeof(test_client_key_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_CLIENT_KEY_ED25519);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_server_cert_file, sizeof(test_server_cert_file),
+                                      picoquic_solution_dir,
+                                      PICOQUIC_TEST_FILE_SERVER_CERT_ED25519);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_server_key_file, sizeof(test_server_key_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_SERVER_KEY_ED25519);
+    }
+
+    if (ret == 0) {
+        ret = picoquic_get_input_path(test_ca_cert_store_file, sizeof(test_ca_cert_store_file),
+                                      picoquic_solution_dir, PICOQUIC_TEST_FILE_CERT_STORE_ED25519);
+    }
+
+    if (ret == 0) {
+        ret = request_client_authentication_test_one(test_client_cert_file, test_client_key_file,
+                                                     test_server_cert_file, test_server_key_file,
+                                                     test_ca_cert_store_file);
+    }
+
+    if (ret != 0) {
+        DBG_PRINTF("%s", "mTLS client-auth test failed ED25519\n");
     }
 
     return ret;
@@ -5686,11 +5914,10 @@ int nat_rebinding_test_one(uint64_t loss_mask_data, int zero_cid, uint64_t laten
             test_ctx->s_to_c_link->microsec_latency = latency;
         }
         picoquic_set_log_level(test_ctx->qserver, 1);
-        ret = picoquic_set_binlog(test_ctx->qserver, ".");
+        ret = picoquic_set_qlog(test_ctx->qserver, ".");
         picoquic_set_log_level(test_ctx->qclient, 1);
         if (ret == 0) {
-            ret = picoquic_set_binlog(test_ctx->qclient, ".");
-            binlog_new_connection(test_ctx->cnx_client);
+            ret = picoquic_set_qlog(test_ctx->qclient, ".");
         }
     }
 
@@ -5831,9 +6058,8 @@ int fast_nat_rebinding_test()
 
     if (ret == 0) {
         /* Set up logging */ 
-        picoquic_set_binlog(test_ctx->qserver, ".");
-        picoquic_set_binlog(test_ctx->qclient, ".");
-        binlog_new_connection(test_ctx->cnx_client);
+        picoquic_set_qlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qclient, ".");
     }
 
     if (ret == 0) {
@@ -6124,9 +6350,8 @@ int client_only_test()
         /* First, try enforcement. We do set log on the server side, but it is expected to be empty */
         int connection_ret = 0;
         picoquic_enforce_client_only(test_ctx->qserver, 1);
-        picoquic_set_binlog(test_ctx->qserver, ".");
-        picoquic_set_binlog(test_ctx->qclient, ".");
-        binlog_new_connection(test_ctx->cnx_client);
+        picoquic_set_qlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qclient, ".");
         connection_ret = tls_api_connection_loop(test_ctx, &loss_mask, 0, &simulated_time);
         if (connection_ret == 0 && test_ctx->cnx_client->cnx_state < picoquic_state_disconnected) {
             DBG_PRINTF("Connection unexpectedly succeeds, state=%d, ret=%d (0x%x)",
@@ -8697,7 +8922,7 @@ void qlog_trace_cid_fn(picoquic_quic_t* quic, picoquic_connection_id_t cnx_id_lo
     }
 }
 
-int qlog_trace_test_one(int auto_qlog, int keep_binlog, uint8_t recv_ecn)
+int qlog_trace_test_one(uint8_t recv_ecn)
 {
     uint64_t simulated_time = 0;
     picoquic_test_tls_api_ctx_t* test_ctx = NULL;
@@ -8707,17 +8932,12 @@ int qlog_trace_test_one(int auto_qlog, int keep_binlog, uint8_t recv_ecn)
     picoquic_connection_id_t cnxfn_data_server = { {2, 2, 2, 2, 2, 2, 2, 2}, 8 };
     uint8_t reset_seed_client[PICOQUIC_RESET_SECRET_SIZE] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };
     uint8_t reset_seed_server[PICOQUIC_RESET_SECRET_SIZE] = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 };
-    char const* qlog_target = (auto_qlog) ? QLOG_TRACE_AUTO_QLOG : ((recv_ecn != 0) ? QLOG_TRACE_ECN_QLOG : QLOG_TRACE_QLOG);
+    char const* qlog_target = QLOG_TRACE_AUTO_QLOG;
 
     if (ret == 0 && test_ctx == NULL) {
         ret = -1;
     }
 
-    if (!auto_qlog && !keep_binlog) {
-        ret = -1;
-    }
-
-    (void)picoquic_file_delete(QLOG_TRACE_BIN, NULL);
     (void)picoquic_file_delete(qlog_target, NULL);
 
     /* Set the logging policy on the server side, to store data in the
@@ -8725,12 +8945,7 @@ int qlog_trace_test_one(int auto_qlog, int keep_binlog, uint8_t recv_ecn)
     if (ret == 0) {
         test_ctx->recv_ecn_client = recv_ecn;
         test_ctx->recv_ecn_server = recv_ecn;
-        if (auto_qlog) {
-            picoquic_set_qlog(test_ctx->qserver, ".");
-        }
-        if (keep_binlog) {
-            picoquic_set_binlog(test_ctx->qserver, ".");
-        }
+        picoquic_set_qlog(test_ctx->qserver, ".");
         (void)picoquic_set_default_spinbit_policy(test_ctx->qserver, picoquic_spinbit_on);
         (void)picoquic_set_default_spinbit_policy(test_ctx->qclient, picoquic_spinbit_on);
         picoquic_set_default_lossbit_policy(test_ctx->qserver, picoquic_lossbit_send_receive);
@@ -8781,20 +8996,6 @@ int qlog_trace_test_one(int auto_qlog, int keep_binlog, uint8_t recv_ecn)
         test_ctx = NULL;
     }
 
-    /* Create a QLOG file from the .bin log file */
-    if (ret == 0 && !auto_qlog) {
-        uint64_t log_time = 0;
-        uint16_t flags;
-        FILE* f_binlog = picoquic_open_cc_log_file_for_read(QLOG_TRACE_BIN, &flags, &log_time);
-        if (f_binlog == NULL) {
-            ret = -1;
-        }
-        else {
-            ret = qlog_convert(&initial_cid, f_binlog, QLOG_TRACE_BIN, qlog_target, NULL, flags);
-            picoquic_file_close(f_binlog);
-        }
-    }
-
     /* compare the log file to the expected value */
     if (ret == 0)
     {
@@ -8816,22 +9017,119 @@ int qlog_trace_test_one(int auto_qlog, int keep_binlog, uint8_t recv_ecn)
 
 int qlog_trace_test()
 {
-    return qlog_trace_test_one(0, 1, 0);
-}
-
-int qlog_trace_only_test()
-{
-    return qlog_trace_test_one(1, 0, 0);
-}
-
-int qlog_trace_auto_test()
-{
-    return qlog_trace_test_one(1, 1, 0);
+    return qlog_trace_test_one(0);
 }
 
 int qlog_trace_ecn_test()
 {
-    return qlog_trace_test_one(0, 1, 0x02);
+    return qlog_trace_test_one(0x02);
+}
+
+#define QLOG_FNS_QLOG "0102030405060708.server.qlog"
+
+int qlog_fns_test_one(uint8_t recv_ecn)
+{
+    uint64_t simulated_time = 0;
+    picoquic_test_tls_api_ctx_t* test_ctx = NULL;
+    int ret = tls_api_init_ctx(&test_ctx, PICOQUIC_INTERNAL_TEST_VERSION_1, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time, NULL, NULL, 0, 1, 0);
+    picoquic_connection_id_t initial_cid = { {1, 2, 3, 4, 5, 6, 7, 8}, 8 };
+    picoquic_connection_id_t cnxfn_data_client = { {1, 1, 1, 1, 1, 1, 1, 1}, 8 };
+    picoquic_connection_id_t cnxfn_data_server = { {2, 2, 2, 2, 2, 2, 2, 2}, 8 };
+    uint8_t reset_seed_client[PICOQUIC_RESET_SECRET_SIZE] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };
+    uint8_t reset_seed_server[PICOQUIC_RESET_SECRET_SIZE] = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 };
+    char const* qlog_target = QLOG_FNS_QLOG;
+
+    if (ret == 0 && test_ctx == NULL) {
+        ret = -1;
+    }
+
+    (void)picoquic_file_delete(qlog_target, NULL);
+
+    /* Set the logging policy on the server side, to store data in the
+     * current working directory, and run a basic test scenario */
+    if (ret == 0) {
+        test_ctx->recv_ecn_client = recv_ecn;
+        test_ctx->recv_ecn_server = recv_ecn;
+
+        picoquic_set_qlog(test_ctx->qserver, ".");
+        
+        (void)picoquic_set_default_spinbit_policy(test_ctx->qserver, picoquic_spinbit_on);
+        (void)picoquic_set_default_spinbit_policy(test_ctx->qclient, picoquic_spinbit_on);
+        picoquic_set_default_lossbit_policy(test_ctx->qserver, picoquic_lossbit_send_receive);
+        picoquic_set_default_lossbit_policy(test_ctx->qclient, picoquic_lossbit_send_receive);
+        test_ctx->qserver->cnx_id_callback_ctx = (void*)&cnxfn_data_server;
+        test_ctx->qserver->cnx_id_callback_fn = qlog_trace_cid_fn;
+        test_ctx->qclient->cnx_id_callback_ctx = (void*)&cnxfn_data_client;
+        test_ctx->qclient->cnx_id_callback_fn = qlog_trace_cid_fn;
+        memcpy(test_ctx->qclient->reset_seed, reset_seed_client, PICOQUIC_RESET_SECRET_SIZE);
+        memcpy(test_ctx->qserver->reset_seed, reset_seed_server, PICOQUIC_RESET_SECRET_SIZE);
+
+        /* Force ciphersuite to AES128, so Client Hello has a constant format */
+        if (picoquic_set_cipher_suite(test_ctx->qclient, PICOQUIC_AES_128_GCM_SHA256) != 0) {
+            DBG_PRINTF("Could not set ciphersuite to 0x%04x", PICOQUIC_AES_128_GCM_SHA256);
+        }
+        if (picoquic_set_key_exchange(test_ctx->qclient, PICOQUIC_GROUP_SECP256R1) != 0) {
+            DBG_PRINTF("Could not set key exchange to %d", PICOQUIC_GROUP_SECP256R1);
+        }
+        /* Delete the old connection */
+        picoquic_delete_cnx(test_ctx->cnx_client);
+
+        /* re-create a client connection, this time picking up the required connection ID */
+        test_ctx->cnx_client = picoquic_create_cnx(test_ctx->qclient,
+            initial_cid, picoquic_null_connection_id,
+            (struct sockaddr*)&test_ctx->server_addr, 0,
+            PICOQUIC_INTERNAL_TEST_VERSION_1, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, 1);
+
+        ret = tls_api_one_scenario_body(test_ctx, &simulated_time,
+            test_scenario_q2_and_r2, sizeof(test_scenario_q2_and_r2), 0, 0x00010a04, 0, 20000, 2000000);
+    }
+
+    /* Add a gratuitous bad packet to test "packet dropped" log */
+    if (ret == 0 && test_ctx->cnx_server != NULL) {
+        uint8_t p[256];
+
+        memset(p, 0, sizeof(p));
+        memcpy(p + 1, test_ctx->cnx_server->path[0]->first_tuple->p_local_cnxid->cnx_id.id, test_ctx->cnx_server->path[0]->first_tuple->p_local_cnxid->cnx_id.id_len);
+        p[0] |= 64;
+        (void)picoquic_incoming_packet(test_ctx->qserver, p, sizeof(p), (struct sockaddr*)&test_ctx->cnx_server->path[0]->first_tuple->peer_addr,
+            (struct sockaddr*)&test_ctx->cnx_server->path[0]->first_tuple->local_addr, 0, test_ctx->recv_ecn_server, simulated_time);
+    }
+
+    /* Free the resource, which will close the log file.
+     */
+
+    if (test_ctx != NULL) {
+        tls_api_delete_ctx(test_ctx);
+        test_ctx = NULL;
+    }
+
+    /* compare the log file to the expected value */
+    if (ret == 0)
+    {
+        char qlog_trace_test_ref[512];
+
+        ret = picoquic_get_input_path(qlog_trace_test_ref, sizeof(qlog_trace_test_ref), picoquic_solution_dir,
+            (recv_ecn == 0) ? QLOG_TRACE_TEST_REF : QLOG_TRACE_ECN_TEST_REF);
+
+        if (ret != 0) {
+            DBG_PRINTF("%s", "Cannot set the qlog trace test ref file name.\n");
+        }
+        else {
+            ret = picoquic_test_compare_text_files(qlog_target, qlog_trace_test_ref);
+        }
+    }
+
+    return ret;
+}
+
+int qlog_fns_test()
+{
+    return qlog_fns_test_one(0);
+}
+
+int qlog_fns_ecn_test()
+{
+    return qlog_fns_test_one(0x02);
 }
 
 /*
@@ -9200,7 +9498,7 @@ int long_rtt_test()
         test_ctx->c_to_s_link->microsec_latency = latency;
         test_ctx->s_to_c_link->microsec_latency = latency;
 
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
 
         /* The transmission delay cannot be less than 2.6 sec:
          * 3 handshakes at 1 RTT each = 1.8 sec, plus
@@ -9248,7 +9546,7 @@ int optimistic_ack_test_one(int shall_spoof_ack)
         /* set the optimistic ack policy to the default value */
         picoquic_set_optimistic_ack_policy(test_ctx->qserver, PICOQUIC_DEFAULT_HOLE_PERIOD);
         /* add a log request for debugging */
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
 
         /* Reset the uniform random test */
         picoquic_public_random_seed_64(RANDOM_PUBLIC_TEST_SEED, 1);
@@ -10651,7 +10949,7 @@ static int red_cc_algotest(picoquic_congestion_algorithm_t* cc_algo, uint64_t ta
         test_ctx->s_to_c_link->picosec_per_byte = picosec_per_byte;
         /* Set the CC algorithm to selected value */
         picoquic_set_default_congestion_algorithm(test_ctx->qserver, cc_algo);
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qserver->use_long_log = 1;
         /* Setting the RED threshold to the latency target, for simplification. */
         if ((ret = red_aqm_configure(test_ctx->c_to_s_link, latency_target, queue_max_red)) == 0) {
@@ -10758,7 +11056,7 @@ static int multi_segment_test_one(picoquic_congestion_algorithm_t* cc_algo, uint
         test_ctx->s_to_c_link->picosec_per_byte = picosec_per_byte;
         /* Set the CC algorithm to selected value */
         picoquic_set_default_congestion_algorithm(test_ctx->qserver, cc_algo);
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qserver->use_long_log = 1;
     }
 
@@ -10875,7 +11173,7 @@ int heavy_loss_test_one(int scenario_id, uint64_t completion_target)
     if (ret == 0) {
         /* Set the CC algorithm to selected value */
         picoquic_set_default_congestion_algorithm(test_ctx->qserver, picoquic_bbr_algorithm);
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qserver->use_long_log = 1;
     }
 
@@ -11899,7 +12197,7 @@ int random_padding_test_one(size_t pad_length, uint64_t* random_context, uint8_t
     if (ret == 0) {
         /* Start logging on the server */
         picoquic_set_textlog(test_ctx->qserver, random_padding_text_log);
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qserver->use_long_log = 1;
     }
 
@@ -12287,7 +12585,7 @@ int immediate_ack_test()
         PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time, NULL, NULL, 0, 0, 0, &initial_cid);
 
     if (ret == 0) {
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
     }
 
     if (ret == 0) {

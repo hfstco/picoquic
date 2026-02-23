@@ -231,6 +231,7 @@ typedef struct st_picoquic_test_tls_api_ctx_t {
     int streams_finished;
     int reset_received;
     int immediate_exit;
+    int ecn_support;
     /* Checking that addresses are discovered */
     int nb_address_observed;
 
@@ -391,6 +392,21 @@ int picoquic_test_set_minimal_cnx(picoquic_quic_t** quic, picoquic_cnx_t** cnx);
 int picoquic_test_set_minimal_cnx_with_time(picoquic_quic_t** quic, picoquic_cnx_t** cnx, uint64_t* simulated_time);
 int picoquic_test_reset_minimal_cnx(picoquic_quic_t* quic, picoquic_cnx_t** cnx);
 void picoquic_test_delete_minimal_cnx(picoquic_quic_t** quic, picoquic_cnx_t** cnx);
+
+typedef struct st_zero_rtt_test_t {
+    int use_badcrypt;
+    int hardreset;
+    uint64_t early_loss;
+    unsigned int no_coal;
+    unsigned int long_data;
+    uint64_t extra_delay;
+    int do_multipath;
+    int propose_ech;
+} zero_rtt_test_t;
+
+int zero_rtt_test_one(zero_rtt_test_t* zrt);
+
+int picoquic_check_bytes_in_flight(char const* qlog_file, uint64_t* max_bytes_in_flight);
 
 #ifdef __cplusplus
 }

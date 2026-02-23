@@ -58,7 +58,7 @@ typedef struct st_picoquic_socket_ctx_t {
     /* Management of sendmsg */
     char cmsg_buffer[1024];
     size_t udp_coalesced_size;
-#ifdef _WINDOWS
+#if defined(_WINDOWS)
     /* Windows specific */
     WSAOVERLAPPED overlap;
     LPFN_WSARECVMSG WSARecvMsg;
@@ -68,6 +68,12 @@ typedef struct st_picoquic_socket_ctx_t {
     int nb_immediate_receive;
     int so_sndbuf;
     int so_rcvbuf;
+#elif defined(PICOQUIC_WITH_IO_URING)
+    /* Declare the buffers required for io_uring */
+    struct msghdr msg;
+    uint8_t* ctrl_buffer;
+    struct iovec data_iovec;
+    int is_io_uring_started;
 #endif
 } picoquic_socket_ctx_t;
 
@@ -176,6 +182,10 @@ typedef struct st_picoquic_network_thread_ctx_t {
     HANDLE wake_up_event;
 #else
     int wake_up_pipe_fd[2];
+#ifdef PICOQUIC_WITH_IO_URING
+    struct iovec pipe_iovec;
+    int is_pipe_io_uring_started;
+#endif
 #endif
     int is_threaded;
     int wake_up_defined;
@@ -308,7 +318,7 @@ int picoquic_packet_loop_win(picoquic_quic_t* quic,
 /* Following declarations are used for unit tests. */
 void picoquic_packet_loop_close_socket(picoquic_socket_ctx_t* s_ctx);
 int picoquic_packet_loop_open_sockets(uint16_t local_port, int local_af, int socket_buffer_size, int extra_socket_required,
-    int do_not_use_gso, picoquic_socket_ctx_t* s_ctx);
+    int do_not_use_gso, picoquic_socket_ctx_t* s_ctx, uint8_t ecn_value);
 
 #ifdef __cplusplus
 }

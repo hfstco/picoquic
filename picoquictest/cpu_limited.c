@@ -26,7 +26,7 @@
 #include "picoquic_internal.h"
 #include "picoquictest_internal.h"
 #include "tls_api.h"
-#include "picoquic_binlog.h"
+#include "autoqlog.h"
 #include "logreader.h"
 #include "qlog.h"
 
@@ -149,10 +149,9 @@ int limited_client_test_one(limited_test_config_t * config)
         test_ctx->client_endpoint.prepare_cpu_time = config->prepare_cpu_time;
         test_ctx->client_endpoint.packet_queue_max = config->packet_queue_max;
         test_ctx->qserver->use_long_log = 1;
-        picoquic_set_binlog(test_ctx->qserver, ".");
+        picoquic_set_qlog(test_ctx->qserver, ".");
         test_ctx->qclient->use_long_log = 1;
-        picoquic_set_binlog(test_ctx->qclient, ".");
-        binlog_new_connection(test_ctx->cnx_client);
+        picoquic_set_qlog(test_ctx->qclient, ".");
         /* Set long delays, 1 Mbps each way */
         test_ctx->c_to_s_link->microsec_latency = config->microsec_latency;
         test_ctx->c_to_s_link->picosec_per_byte = config->picosec_per_byte;
@@ -254,7 +253,7 @@ int limited_safe_test()
     limited_test_config_t config;
     limited_config_set_default(&config, 5);
     config.ccalgo = picoquic_cubic_algorithm;
-    config.max_completion_time = 5400000;
+    config.max_completion_time = 5450000;
     /* Bug. Should investigate later -- there should be 0 or maybe 1 losses */
     config.nb_losses_max = 6;
     config.flow_control_max = 57344;

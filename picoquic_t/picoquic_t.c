@@ -45,6 +45,7 @@ typedef enum {
 static const picoquic_test_def_t test_table[] = {
     { "connection_id_print", util_connection_id_print_test },
     { "connection_id_parse", util_connection_id_parse_test },
+    { "error_name", error_name_test },
     { "util_sprintf", util_sprintf_test },
     { "util_debug_print", util_debug_print_test },
     { "util_uint8_to_str", util_uint8_to_str_test },
@@ -82,6 +83,7 @@ static const picoquic_test_def_t test_table[] = {
     { "frames_format", frames_format_test },
     { "logger", logger_test },
     { "binlog", binlog_test },
+    { "qlog_frames", qlog_frames_test },
     { "app_message_overflow", app_message_overflow_test },
     { "TlsStreamFrame", TlsStreamFrameTest },
     { "StreamZeroFrame", StreamZeroFrameTest },
@@ -123,6 +125,7 @@ static const picoquic_test_def_t test_table[] = {
 #endif
     { "tls_api", tls_api_test },
     { "tls_api_inject_hs_ack", tls_api_inject_hs_ack_test },
+    { "tls_exporter", tls_exporter_test },
     { "null_sni", null_sni_test },
     { "silence_test", tls_api_silence_test },
     { "code_version", code_version_test },
@@ -157,6 +160,7 @@ static const picoquic_test_def_t test_table[] = {
     { "connection_drop", connection_drop_test },
     { "vn_tp", vn_tp_test },
     { "vn_compat", vn_compat_test },
+    { "transport_param_default", transport_param_default_test },
     { "stream_rank", stream_rank_test },
     { "provide_stream_buffer", provide_stream_buffer_test },
     { "transport_param", transport_param_test },
@@ -259,6 +263,9 @@ static const picoquic_test_def_t test_table[] = {
     { "zero_rtt_many_losses", zero_rtt_many_losses_test },
     { "zero_rtt_long", zero_rtt_long_test },
     { "zero_rtt_delay", zero_rtt_delay_test },
+#if 0
+    { "zero_rtt_ech", zero_rtt_ech_test },
+#endif
     { "random_tester", random_tester_test},
     { "random_gauss", random_gauss_test},
     { "random_public_tester", random_public_tester_test},
@@ -301,9 +308,9 @@ static const picoquic_test_def_t test_table[] = {
     { "qlog_auto", qlog_auto_test },
     { "qlog_error", qlog_error_test },
     { "qlog_trace", qlog_trace_test },
-    { "qlog_trace_auto", qlog_trace_auto_test },
-    { "qlog_trace_only", qlog_trace_only_test },
     { "qlog_trace_ecn", qlog_trace_ecn_test },
+    { "qlog_fns", qlog_fns_test },
+    { "qlog_fns_ecn", qlog_fns_ecn_test },
     { "perflog", perflog_test },
     { "nat_rebinding_stress", rebinding_stress_test },
     { "random_padding", random_padding_test },
@@ -361,6 +368,7 @@ static const picoquic_test_def_t test_table[] = {
     { "l4s_prague", l4s_prague_test },
     { "l4s_prague_updown", l4s_prague_updown_test },
     { "l4s_bbr", l4s_bbr_test },
+    { "l4s_c4", l4s_c4_test },
     { "l4s_bbr_updown", l4s_bbr_updown_test },
     { "long_rtt", long_rtt_test },
     { "high_latency_basic", high_latency_basic_test },
@@ -439,6 +447,7 @@ static const picoquic_test_def_t test_table[] = {
     { "cert_verify_rsa", cert_verify_rsa_test },
     { "cid_quiescence", cid_quiescence_test },
     { "client_auth", request_client_authentication_test },
+    { "client_auth_25519", request_client_authentication_25519_test },
     { "client_cert_callback", set_verify_certificate_callback_test },
     { "mediatest_video", mediatest_video_test },
     { "mediatest_video_audio", mediatest_video_audio_test },
@@ -520,6 +529,7 @@ static const picoquic_test_def_t test_table[] = {
     { "multipath_just_one", multipath_just_one_test },
     { "multipath_break_both", multipath_break_both_test },
     { "multipath_qlog", multipath_qlog_test },
+    { "multipath_qlog_fns", multipath_qlog_fns_test },
     { "multipath_tunnel", multipath_tunnel_test },
     { "monopath_0rtt", monopath_0rtt_test },
     { "monopath_0rtt_loss", monopath_0rtt_loss_test },
@@ -548,7 +558,6 @@ static const picoquic_test_def_t test_table[] = {
     { "config_option_letters", config_option_letters_test },
     { "config_quic", config_quic_test },
     { "config_usage", config_usage_test }
-    
 };
 
 static size_t const nb_tests = sizeof(test_table) / sizeof(picoquic_test_def_t);
