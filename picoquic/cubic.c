@@ -48,11 +48,39 @@ typedef struct st_picoquic_cubic_state_t {
     double W_reno;
     uint64_t ssthresh;
     picoquic_min_max_rtt_t rtt_filter;
+    char const* option_string;
+    int hystart_mode;  /* 0=classic HyStart (default), 1=HyStart++, 2=disabled */
 } picoquic_cubic_state_t;
 
+static void cubic_set_options(picoquic_cubic_state_t* cubic_state)
+{
+    if (cubic_state->option_string != NULL) {
+        char const* x = cubic_state->option_string;
+        char c;
+        int ended = 0;
+        while ((c = *x) != 0 && !ended) {
+            x++;
+            switch (c) {
+            case 'H': /* disable HyStart */
+                cubic_state->hystart_mode = 2;
+                break;
+            case 'P': /* enable HyStart++ */
+                cubic_state->hystart_mode = 1;
+                break;
+            default:
+                ended = 1;
+                break;
+            }
+        }
+    }
+}
+
 static void cubic_reset(picoquic_cubic_state_t* cubic_state, picoquic_path_t* path_x, uint64_t current_time) {
+    char const* saved_option_string = cubic_state->option_string;
     memset(&cubic_state->rtt_filter, 0, sizeof(picoquic_min_max_rtt_t));
     memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
+    cubic_state->option_string = saved_option_string;
+    cubic_set_options(cubic_state);
     path_x->cwin = PICOQUIC_CWIN_INITIAL;
     cubic_state->alg_state = picoquic_cubic_alg_slow_start;
     cubic_state->ssthresh = UINT64_MAX;
@@ -73,11 +101,12 @@ static void cubic_init(picoquic_cnx_t * cnx, picoquic_path_t* path_x, char const
     picoquic_cubic_state_t* cubic_state = (picoquic_cubic_state_t*)malloc(sizeof(picoquic_cubic_state_t));
 #ifdef _WINDOWS
     UNREFERENCED_PARAMETER(cnx);
-    UNREFERENCED_PARAMETER(option_string);
 #endif
     path_x->congestion_alg_state = (void*)cubic_state;
     if (cubic_state != NULL) {
-        cubic_reset(cubic_state, path_x, current_time);
+        memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
+        cubic_state->option_string = option_string; /* must be set before cubic_reset */
+        cubic_reset(cubic_state, path_x, current_time); /* will save/restore option_string and call cubic_set_options */
     }
 }
 
@@ -261,7 +290,7 @@ static void cubic_notify(
 
                         if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                             //if (path_x->bytes_in_transit > path_x->cwin) {
-                                path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, 0);
+                                path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, cubic_state->rtt_filter.css_in_css);
 
                                 /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                                 if (path_x->cwin >= cubic_state->ssthresh) {
@@ -348,10 +377,24 @@ static void cubic_notify(
                 if (cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
                     cubic_state->ssthresh == UINT64_MAX) {
 
-                    /* HyStart. */
-                    /* Using RTT increases as signal to get out of initial slow start */
-                    if (picoquic_cc_hystart_test(&cubic_state->rtt_filter, (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement,
-                            cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled)) {
+                    int do_exit_ss = 0;
+                    uint64_t rtt_sample = (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement;
+
+                    if (cubic_state->hystart_mode == 2) {
+                        /* HyStart disabled: do nothing */
+                    } else if (cubic_state->hystart_mode == 1) {
+                        /* HyStart++ (RFC 9406) */
+                        int hs_ret = picoquic_cc_hystart_pp_test(&cubic_state->rtt_filter, rtt_sample,
+                            cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled);
+                        do_exit_ss = (hs_ret == 1);
+                        /* hs_ret == 2 (CSS): css_in_css flag set, handled in acknowledgement handler */
+                    } else {
+                        /* Classic HyStart (default) */
+                        do_exit_ss = picoquic_cc_hystart_test(&cubic_state->rtt_filter, rtt_sample,
+                            cnx->path[0]->pacing.packet_time_microsec, current_time, cnx->is_time_stamp_enabled);
+                    }
+
+                    if (do_exit_ss) {
                         /* RTT increased too much, get out of slow start! */
 
                         if (cubic_state->rtt_filter.rtt_filtered_min > PICOQUIC_TARGET_RENO_RTT){

@@ -35,7 +35,6 @@ extern "C" {
  * HyStart++
  */
 
-/* TODO HyStart++ isn't implemented yet! */
 /* It is RECOMMENDED that a HyStart++ implementation use the following constants: */
 /* MIN_RTT_THRESH = 4 msec
  * MAX_RTT_THRESH = 16 msec
@@ -71,6 +70,10 @@ typedef struct st_picoquic_min_max_rtt_t {
     uint64_t sample_min;
     uint64_t sample_max;
     uint64_t samples[PICOQUIC_MIN_MAX_RTT_SCOPE];
+    /* HyStart++ (RFC 9406) CSS state */
+    int css_in_css;          /* Currently in Consecutive Slow Start */
+    int css_round_count;     /* Number of complete CSS rounds */
+    int css_sample_count;    /* Samples collected in current CSS round */
 } picoquic_min_max_rtt_t;
 
 uint64_t picoquic_cc_get_sequence_number(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
@@ -87,6 +90,11 @@ int picoquic_cc_hystart_loss_test(picoquic_min_max_rtt_t* rtt_track, picoquic_co
 int picoquic_cc_hystart_loss_volume_test(picoquic_min_max_rtt_t* rtt_track, picoquic_congestion_notification_t event, uint64_t nb_bytes_newly_acked, uint64_t nb_bytes_newly_lost);
 
 int picoquic_cc_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled);
+
+/* HyStart++ (RFC 9406).
+ * Returns: 0 = continue SS, 1 = exit SS (set ssthresh), 2 = enter/continue CSS (use reduced growth)
+ */
+int picoquic_cc_hystart_pp_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled);
 
 /*
  * Slow Start

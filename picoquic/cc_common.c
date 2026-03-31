@@ -199,6 +199,84 @@ int picoquic_cc_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_mea
     return ret;
 }
 
+int picoquic_cc_hystart_pp_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled)
+{
+    int ret = 0;
+
+    if (current_time > rtt_track->last_rtt_sample_time + 1000) {
+        picoquic_cc_filter_rtt_min_max(rtt_track, rtt_measurement);
+        rtt_track->last_rtt_sample_time = current_time;
+
+        if (rtt_track->is_init) {
+            uint64_t rtt_thresh;
+
+            /* Update rtt_filtered_min (only decreases over time) */
+            if (rtt_track->rtt_filtered_min == 0 ||
+                rtt_track->rtt_filtered_min > rtt_track->sample_max) {
+                rtt_track->rtt_filtered_min = rtt_track->sample_max;
+            }
+
+            /* Compute HyStart++ RTT threshold: clamp(rtt_filtered_min / MIN_RTT_DIVISOR, MIN_RTT_THRESH, MAX_RTT_THRESH) */
+            rtt_thresh = rtt_track->rtt_filtered_min / PICOQUIC_HYSTART_PP_MIN_RTT_DIVISOR;
+            if (rtt_thresh < PICOQUIC_HYSTART_PP_MIN_RTT_THRESH) {
+                rtt_thresh = PICOQUIC_HYSTART_PP_MIN_RTT_THRESH;
+            } else if (rtt_thresh > PICOQUIC_HYSTART_PP_MAX_RTT_THRESH) {
+                rtt_thresh = PICOQUIC_HYSTART_PP_MAX_RTT_THRESH;
+            }
+
+            if (rtt_track->css_in_css) {
+                /* In CSS: track round boundaries (every N_RTT_SAMPLE samples = 1 round) */
+                rtt_track->css_sample_count++;
+                if (rtt_track->css_sample_count >= PICOQUIC_HYSTART_PP_N_RTT_SAMPLE) {
+                    /* New CSS round boundary */
+                    rtt_track->css_sample_count = 0;
+                    rtt_track->css_round_count++;
+
+                    if (rtt_track->sample_min <= rtt_track->rtt_filtered_min + rtt_thresh) {
+                        /* RTT improved: "search" - return to normal SS to probe for more bandwidth */
+                        rtt_track->css_in_css = 0;
+                        rtt_track->css_round_count = 0;
+                        rtt_track->nb_rtt_excess = 0;
+                        rtt_track->rtt_filtered_min = 0; /* Reset to allow re-probing */
+                        ret = 0;
+                    } else if (rtt_track->css_round_count >= PICOQUIC_HYSTART_PP_CSS_ROUNDS) {
+                        /* RTT still elevated after CSS_ROUNDS: exit SS */
+                        rtt_track->css_in_css = 0;
+                        rtt_track->css_round_count = 0;
+                        ret = 1;
+                    } else {
+                        /* Continue CSS */
+                        ret = 2;
+                    }
+                } else {
+                    ret = 2; /* Still in current CSS round */
+                }
+            } else {
+                /* Normal SS: check for RTT increase using HyStart++ threshold */
+                if (rtt_track->sample_min > rtt_track->rtt_filtered_min) {
+                    if (rtt_track->sample_min > rtt_track->rtt_filtered_min + rtt_thresh) {
+                        rtt_track->nb_rtt_excess++;
+                        if (rtt_track->nb_rtt_excess >= PICOQUIC_HYSTART_PP_N_RTT_SAMPLE) {
+                            /* RTT increase confirmed: enter CSS */
+                            rtt_track->css_in_css = 1;
+                            rtt_track->css_round_count = 0;
+                            rtt_track->css_sample_count = 0;
+                            rtt_track->nb_rtt_excess = 0;
+                            ret = 2;
+                        }
+                    }
+                } else {
+                    rtt_track->nb_rtt_excess = 0;
+                }
+            }
+        }
+    } else if (rtt_track->css_in_css) {
+        ret = 2; /* Maintain CSS state between sample intervals */
+    }
+
+    return ret;
+}
+
 uint64_t picoquic_cc_slow_start_increase(picoquic_path_t * path_x, uint64_t nb_delivered) {
     /* App limited. */
     /* TODO discuss
