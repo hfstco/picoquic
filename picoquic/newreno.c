@@ -178,7 +178,8 @@ typedef struct st_picoquic_newreno_state_t {
     picoquic_newreno_sim_state_t nrss;
     picoquic_min_max_rtt_t rtt_filter;
     char const* option_string;
-    int hystart_mode;  /* 0=classic HyStart (default), 1=HyStart++, 2=disabled */
+    int hystart_mode;  /* 0=classic HyStart (default), 1=HyStart++, 2=disabled, 3=SEARCH */
+    picoquic_search_state_t search;
 } picoquic_newreno_state_t;
 
 static void picoquic_newreno_set_options(picoquic_newreno_state_t* nr_state)
@@ -195,6 +196,9 @@ static void picoquic_newreno_set_options(picoquic_newreno_state_t* nr_state)
                 break;
             case 'P': /* enable HyStart++ */
                 nr_state->hystart_mode = 1;
+                break;
+            case 'S': /* enable SEARCH */
+                nr_state->hystart_mode = 3;
                 break;
             default:
                 ended = 1;
@@ -266,6 +270,7 @@ static void picoquic_newreno_notify(
                 /* TODO app limited. */
                 if (nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
                     nr_state->nrss.ssthresh == UINT64_MAX &&
+                    nr_state->hystart_mode == 1 &&
                     nr_state->rtt_filter.css_in_css) {
                     /* In HyStart++ CSS phase: use reduced growth rate */
                     nr_state->nrss.cwin += picoquic_cc_slow_start_increase_ex(path_x,
@@ -277,6 +282,28 @@ static void picoquic_newreno_notify(
                 } else {
                     picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
                     path_x->cwin = nr_state->nrss.cwin;
+                }
+
+                /* SEARCH check (only if still in slow start after growth) */
+                if (nr_state->hystart_mode == 3 &&
+                    nr_state->nrss.alg_state == picoquic_newreno_alg_slow_start &&
+                    nr_state->nrss.ssthresh == UINT64_MAX) {
+                    uint64_t overshoot = 0;
+                    if (picoquic_search_notify_ack(&nr_state->search,
+                            ack_state->nb_bytes_acknowledged, current_time,
+                            &overshoot)) {
+                        /* Exit slow start via SEARCH */
+                        if (overshoot < nr_state->nrss.cwin) {
+                            nr_state->nrss.cwin -= overshoot;
+                        }
+                        if (nr_state->nrss.cwin < PICOQUIC_CWIN_MINIMUM) {
+                            nr_state->nrss.cwin = PICOQUIC_CWIN_MINIMUM;
+                        }
+                        nr_state->nrss.ssthresh = nr_state->nrss.cwin;
+                        nr_state->nrss.alg_state = picoquic_newreno_alg_congestion_avoidance;
+                        path_x->cwin = nr_state->nrss.cwin;
+                        path_x->is_ssthresh_initialized = 1;
+                    }
                 }
             }
             break;

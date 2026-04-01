@@ -97,6 +97,45 @@ int picoquic_cc_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_mea
 int picoquic_cc_hystart_pp_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled);
 
 /*
+ * SEARCH -- Slow start Exit At Right CHokepoint (draft-chung-ccwg-search)
+ *
+ * SEARCH determines the slow start exit point by comparing current delivered
+ * bytes to the expected (doubled) delivery from one RTT prior. Uses time-based
+ * bins to aggregate delivery history.
+ */
+
+#define PICOQUIC_SEARCH_W 10                /* bins per measurement window */
+#define PICOQUIC_SEARCH_EXTRA_BINS 15       /* extra bins for one-RTT-ago comparison */
+#define PICOQUIC_SEARCH_NUM_BINS (PICOQUIC_SEARCH_W + PICOQUIC_SEARCH_EXTRA_BINS) /* 25 */
+#define PICOQUIC_SEARCH_THRESH_NUM 35       /* THRESH = 0.35 = 35/100 */
+#define PICOQUIC_SEARCH_THRESH_DEN 100
+#define PICOQUIC_SEARCH_ALPHA 2             /* multiplier for MISSED_BIN_LIMIT */
+#define PICOQUIC_SEARCH_MAX_BIN_VALUE 0xFFFFU /* 16-bit threshold for rescaling */
+
+typedef struct st_picoquic_search_state_t {
+    int is_initialized;          /* 1 once BIN_DURATION has been set from first RTT */
+    int curr_idx;                /* index of current bin; -1 = no bins yet */
+    int scale_factor;            /* right-shift applied to cumulative delivered bytes */
+    int missed_bin_limit;        /* ALPHA * ceil(initial_rtt / bin_duration) */
+    uint64_t bin_duration;       /* BIN_DURATION = WINDOW_SIZE / W, in microseconds */
+    uint64_t bin_end;            /* absolute time: end of the current bin */
+    uint64_t delivered;          /* cumulative payload bytes delivered (unscaled) */
+    uint64_t current_rtt;        /* most recent RTT sample (microseconds) */
+    uint32_t bins[PICOQUIC_SEARCH_NUM_BINS]; /* cumulative scaled delivery values */
+} picoquic_search_state_t;
+
+/* Called on every RTT measurement during slow start; initialises SEARCH on first call. */
+void picoquic_search_notify_rtt(picoquic_search_state_t* s, uint64_t rtt);
+
+/*
+ * Called on every ACK during slow start.
+ * Returns 0 – continue, 1 – exit slow start.
+ * *p_overshoot_bytes: bytes to subtract from cwnd on exit (0 if not computable).
+ */
+int picoquic_search_notify_ack(picoquic_search_state_t* s, uint64_t nb_bytes_acknowledged,
+    uint64_t current_time, uint64_t* p_overshoot_bytes);
+
+/*
  * Slow Start
  * Returns number of bytes CWIN should be increased.
  */

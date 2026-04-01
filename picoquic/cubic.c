@@ -49,7 +49,8 @@ typedef struct st_picoquic_cubic_state_t {
     uint64_t ssthresh;
     picoquic_min_max_rtt_t rtt_filter;
     char const* option_string;
-    int hystart_mode;  /* 0=classic HyStart (default), 1=HyStart++, 2=disabled */
+    int hystart_mode;  /* 0=classic HyStart (default), 1=HyStart++, 2=disabled, 3=SEARCH */
+    picoquic_search_state_t search;
 } picoquic_cubic_state_t;
 
 static void cubic_set_options(picoquic_cubic_state_t* cubic_state)
@@ -66,6 +67,9 @@ static void cubic_set_options(picoquic_cubic_state_t* cubic_state)
                 break;
             case 'P': /* enable HyStart++ */
                 cubic_state->hystart_mode = 1;
+                break;
+            case 'S': /* enable SEARCH */
+                cubic_state->hystart_mode = 3;
                 break;
             default:
                 ended = 1;
@@ -290,7 +294,10 @@ static void cubic_notify(
 
                         if (path_x->last_time_acked_data_frame_sent > path_x->last_sender_limited_time) {
                             //if (path_x->bytes_in_transit > path_x->cwin) {
-                                path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, cubic_state->rtt_filter.css_in_css);
+                                /* CSS-aware growth (only for HyStart++) */
+                                int in_css = (cubic_state->hystart_mode == 1) &&
+                                             cubic_state->rtt_filter.css_in_css;
+                                path_x->cwin += picoquic_cc_slow_start_increase_ex(path_x, ack_state->nb_bytes_acknowledged, in_css);
 
                                 /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                                 if (path_x->cwin >= cubic_state->ssthresh) {
@@ -299,6 +306,30 @@ static void cubic_notify(
                                     cubic_enter_avoidance(cubic_state, current_time);
                                 }
                             //}
+
+                            /* SEARCH check (only if still in slow start after growth) */
+                            if (cubic_state->hystart_mode == 3 &&
+                                cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
+                                cubic_state->ssthresh == UINT64_MAX) {
+                                uint64_t overshoot = 0;
+                                if (picoquic_search_notify_ack(&cubic_state->search,
+                                        ack_state->nb_bytes_acknowledged, current_time,
+                                        &overshoot)) {
+                                    /* Exit slow start via SEARCH */
+                                    if (overshoot < path_x->cwin) {
+                                        path_x->cwin -= overshoot;
+                                    }
+                                    if (path_x->cwin < PICOQUIC_CWIN_MINIMUM) {
+                                        path_x->cwin = PICOQUIC_CWIN_MINIMUM;
+                                    }
+                                    cubic_state->ssthresh = path_x->cwin;
+                                    cubic_state->W_max = (double)path_x->cwin / (double)path_x->send_mtu;
+                                    cubic_state->W_last_max = cubic_state->W_max;
+                                    cubic_state->W_reno = (double)path_x->cwin;
+                                    path_x->is_ssthresh_initialized = 1;
+                                    cubic_enter_avoidance(cubic_state, current_time);
+                                }
+                            }
                         }
                         break;
                     /* TODO discuss
@@ -377,11 +408,17 @@ static void cubic_notify(
                 if (cubic_state->alg_state == picoquic_cubic_alg_slow_start &&
                     cubic_state->ssthresh == UINT64_MAX) {
 
-                    int do_exit_ss = 0;
                     uint64_t rtt_sample = (cnx->is_time_stamp_enabled) ? ack_state->one_way_delay : ack_state->rtt_measurement;
 
-                    if (cubic_state->hystart_mode == 2) {
-                        /* HyStart disabled: do nothing */
+                    /* Feed RTT to SEARCH (initialises it on first call) */
+                    if (cubic_state->hystart_mode == 3) {
+                        picoquic_search_notify_rtt(&cubic_state->search, rtt_sample);
+                    }
+
+                    int do_exit_ss = 0;
+
+                    if (cubic_state->hystart_mode == 2 || cubic_state->hystart_mode == 3) {
+                        /* HyStart disabled or SEARCH mode: RTT-based exit handled elsewhere */
                     } else if (cubic_state->hystart_mode == 1) {
                         /* HyStart++ (RFC 9406) */
                         int hs_ret = picoquic_cc_hystart_pp_test(&cubic_state->rtt_filter, rtt_sample,
