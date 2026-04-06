@@ -78,6 +78,7 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/bbr.c
     picoquic/bbr1.c
     picoquic/bytestream.c
+    picoquic/careful_resume.c
     picoquic/cc_common.c
     picoquic/config.c
     picoquic/cubic.c

@@ -136,6 +136,36 @@ int picoquic_search_notify_ack(picoquic_search_state_t* s, uint64_t nb_bytes_ack
     uint64_t current_time, uint64_t* p_overshoot_bytes);
 
 /*
+ * Careful Resume (draft-ietf-tsvwg-careful-resume)
+ *
+ * Reuses saved CC parameters (cwnd, RTT) from a previous connection to safely
+ * skip slow start on reconnection to the same endpoint. The algorithm jumps to
+ * half the saved cwnd, validates that no congestion occurs, and retreats
+ * aggressively if any congestion signal is detected.
+ *
+ * Integration: timing.c fires picoquic_congestion_notification_seed_cwin once
+ * the first RTT measurement confirms the remote IP and RTT match the saved seed.
+ * The CR algorithm uses that notification as the trigger to enter UNVALIDATED.
+ */
+#define PICOQUIC_CR_BETA_NUM 1          /* Beta = 0.5 (ssthresh = pipe_size * Beta) */
+#define PICOQUIC_CR_BETA_DEN 2
+
+typedef enum {
+    picoquic_cr_alg_reconnaissance = 0, /* Normal slow start, waiting for seed_cwin */
+    picoquic_cr_alg_unvalidated,        /* cwnd = jump_cwnd; awaiting first ACK */
+    picoquic_cr_alg_validating,         /* Waiting for all unvalidated packets to be ACK'd */
+    picoquic_cr_alg_safe_retreat,       /* Congestion detected; cwnd reduced; draining */
+    picoquic_cr_alg_normal              /* CR complete; standard newreno CA */
+} picoquic_cr_alg_state_t;
+
+typedef struct st_picoquic_cr_state_t {
+    picoquic_cr_alg_state_t cr_state;
+    uint64_t jump_cwnd;            /* saved_cwnd / 2, clamped to CWIN_INITIAL */
+    uint64_t pipe_size;            /* max bytes_in_transit seen in UNVALIDATED/VALIDATING */
+    uint64_t unvalidated_end_seq;  /* last packet sequence number sent in UNVALIDATED phase */
+} picoquic_cr_state_t;
+
+/*
  * Slow Start
  * Returns number of bytes CWIN should be increased.
  */
