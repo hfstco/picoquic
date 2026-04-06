@@ -27,3 +27,5 @@ Release
 /enc_temp_folder/
 /x64/
 /c4-old
+*.log
+ticket_seed_store.bin
