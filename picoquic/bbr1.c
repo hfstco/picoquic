@@ -1313,6 +1313,15 @@ static void picoquic_bbr1_notify(
                 }
             }
             break;
+        case picoquic_congestion_notification_careful_resume_retreat:
+            /* Careful Resume: probe failed, reset BBR1 and seed with safe cwin */
+            picoquic_bbr1_reset(bbr1_state, path_x, current_time);
+            if (ack_state->nb_bytes_acknowledged > 0) {
+                picoquic_per_ack_state_t seed_state = *ack_state;
+                picoquic_bbr1_notify(cnx, path_x,
+                    picoquic_congestion_notification_seed_cwin, &seed_state, current_time);
+            }
+            break;
         default:
             /* ignore */
             break;

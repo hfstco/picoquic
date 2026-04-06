@@ -2456,6 +2456,11 @@ static void picoquic_bbr_notify(
         case picoquic_congestion_notification_seed_cwin:
             BBRSetBdpSeed(bbr_state, ack_state->nb_bytes_acknowledged);
             break;
+        case picoquic_congestion_notification_careful_resume_retreat:
+            /* Careful Resume: probe failed, reset BBR and seed with safe cwin */
+            picoquic_bbr_reset(bbr_state, path_x, current_time);
+            BBRSetBdpSeed(bbr_state, ack_state->nb_bytes_acknowledged);
+            break;
         default:
             /* ignore */
             break;

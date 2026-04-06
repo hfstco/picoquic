@@ -3203,6 +3203,9 @@ void process_decoded_packet_data(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
         }
     }
 
+    /* Careful Resume: check whether the probe window has been fully ACKed */
+    picoquic_careful_resume_check_probe(cnx, cnx->path[0], current_time);
+
     if (cnx->path[0]->is_ssthresh_initialized && !cnx->path[0]->is_ticket_seeded) {
         picoquic_seed_ticket(cnx, cnx->path[0]);
     }

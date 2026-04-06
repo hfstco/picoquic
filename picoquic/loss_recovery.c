@@ -920,6 +920,10 @@ static void picoquic_count_and_notify_loss(
         }
 
         if (cnx->congestion_alg != NULL && cnx->cnx_state >= picoquic_state_ready && old_p->send_path != NULL) {
+            /* Careful Resume: if a loss occurs during the probe phase, retreat to safe cwin
+             * before processing the normal loss notification. */
+            picoquic_careful_resume_on_loss(cnx, old_p->send_path, current_time);
+
             picoquic_per_ack_state_t ack_state = { 0 };
             ack_state.pc = old_p->pc;
             ack_state.lost_packet_number = old_p->sequence_number;

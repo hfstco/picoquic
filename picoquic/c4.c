@@ -1054,6 +1054,13 @@ void c4_notify(
         case picoquic_congestion_notification_seed_cwin:
             c4_seed_cwin(c4_state, path_x, ack_state->nb_bytes_acknowledged);
             break;
+        case picoquic_congestion_notification_careful_resume_retreat:
+            /* Careful Resume: probe failed, reset C4 and seed with safe cwin */
+            c4_reset(c4_state, path_x, c4_state->option_string, current_time);
+            if (ack_state->nb_bytes_acknowledged > 0) {
+                c4_seed_cwin(c4_state, path_x, ack_state->nb_bytes_acknowledged);
+            }
+            break;
         default:
             /* ignore */
             break;

@@ -164,6 +164,13 @@ void picoquic_newreno_sim_notify(
     case picoquic_congestion_notification_seed_cwin:
         picoquic_newreno_sim_seed_cwin(nr_state, ack_state->nb_bytes_acknowledged);
         break;
+    case picoquic_congestion_notification_careful_resume_retreat:
+        /* Careful Resume: probe failed, retreat to safe cwin */
+        nr_state->cwin = ack_state->nb_bytes_acknowledged;
+        nr_state->ssthresh = ack_state->nb_bytes_acknowledged;
+        nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+        nr_state->residual_ack = 0;
+        break;
     default:
         /* ignore */
         break;
@@ -240,6 +247,7 @@ static void picoquic_newreno_notify(
             }
             break;
         case picoquic_congestion_notification_seed_cwin:
+        case picoquic_congestion_notification_careful_resume_retreat:
             picoquic_newreno_sim_notify(&nr_state->nrss, cnx, path_x, notification, ack_state, current_time);
             path_x->cwin = nr_state->nrss.cwin;
             break;

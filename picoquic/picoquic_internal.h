@@ -1354,6 +1354,10 @@ typedef struct st_picoquic_cnx_t {
     uint8_t seed_ip_addr_length;
     uint64_t seed_rtt_min;
     uint64_t seed_cwin;
+    /* Careful Resume state (draft-ietf-tsvwg-careful-resume) */
+    picoquic_careful_resume_phase_t careful_resume_phase;
+    uint64_t careful_resume_probe_end_seq; /* sequence number that must be ACKed to validate probe */
+    uint64_t careful_resume_safe_cwin;     /* fallback cwin if probe fails */
     /* Identification of ticket issued to the current connection,
      * and if present of the ticket used to resume the connection.
      * On server this is the unique sequence number of the ticket.
@@ -1909,6 +1913,10 @@ void picoquic_compute_ack_gap_and_delay(picoquic_cnx_t* cnx, uint64_t rtt, uint6
 /* seed the rtt and bandwidth discovery */
 void picoquic_seed_bandwidth(picoquic_cnx_t* cnx, uint64_t rtt_min, uint64_t cwin,
     const uint8_t* ip_addr, uint8_t ip_addr_length);
+
+/* Careful Resume probe validation and retreat (draft-ietf-tsvwg-careful-resume) */
+void picoquic_careful_resume_check_probe(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
+void picoquic_careful_resume_on_loss(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time);
 
 /* Management of timers, rtt, etc. */
 uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t* path_x);

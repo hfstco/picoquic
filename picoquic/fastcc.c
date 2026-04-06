@@ -299,6 +299,11 @@ void picoquic_fastcc_notify(
         case picoquic_congestion_notification_seed_cwin:
             picoquic_fastcc_seed_cwin(fastcc_state, path_x, ack_state->nb_bytes_acknowledged);
             break;
+        case picoquic_congestion_notification_careful_resume_retreat:
+            /* Careful Resume: probe failed, retreat to safe cwin */
+            path_x->cwin = ack_state->nb_bytes_acknowledged;
+            fastcc_state->alg_state = picoquic_fastcc_eval;
+            break;
         default:
             /* ignore */
             break;

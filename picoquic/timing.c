@@ -87,7 +87,12 @@ uint64_t picoquic_current_retransmit_timer(picoquic_cnx_t* cnx, picoquic_path_t 
     return rto;
 }
 
-/* The BDP seed is validated upon receiving the first RTT measurement */
+/* The BDP seed is validated upon receiving the first RTT measurement.
+ * Careful Resume (draft-ietf-tsvwg-careful-resume): instead of immediately committing
+ * to the seeded cwnd, we enter an "unvalidated" phase. We record the safe fallback
+ * cwin and the probe end sequence number. If a loss occurs before the probe is ACKed,
+ * we retreat to the safe cwin. Only after the probe is fully ACKed do we commit.
+ */
 static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t rtt_sample, uint64_t current_time)
 {
     if (path_x == cnx->path[0] && cnx->seed_cwin != 0 &&
@@ -105,10 +110,58 @@ static void picoquic_validate_bdp_seed(picoquic_cnx_t* cnx, picoquic_path_t* pat
                 ack_state.pc = picoquic_packet_context_application; /* Arbitrary! */
                 ack_state.nb_bytes_acknowledged = (uint64_t)cnx->seed_cwin;
                 cnx->cwin_notified_from_seed = 1;
+
+                /* Careful Resume: record safe fallback state before jumping to seeded cwnd */
+                cnx->careful_resume_safe_cwin = path_x->cwin;
+                cnx->careful_resume_probe_end_seq = picoquic_cc_get_sequence_number(cnx, path_x);
+                cnx->careful_resume_phase = picoquic_careful_resume_unvalidated;
+
                 cnx->congestion_alg->alg_notify(cnx, path_x,
                     picoquic_congestion_notification_seed_cwin,
                     &ack_state, current_time);
             }
+        }
+    }
+}
+
+/* Careful Resume: check whether the probe window has been fully ACKed.
+ * Called after ACK processing on the primary path.
+ * If highest_acknowledged >= probe_end_seq, the probe is validated.
+ */
+void picoquic_careful_resume_check_probe(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time)
+{
+#ifdef _WINDOWS
+    UNREFERENCED_PARAMETER(current_time);
+#endif
+    if (cnx->careful_resume_phase == picoquic_careful_resume_unvalidated &&
+        path_x == cnx->path[0]) {
+        uint64_t highest_acked = picoquic_cc_get_ack_number(cnx, path_x);
+        if (highest_acked >= cnx->careful_resume_probe_end_seq) {
+            /* Probe successfully validated - exit careful resume */
+            cnx->careful_resume_phase = picoquic_careful_resume_none;
+        }
+    }
+}
+
+/* Careful Resume: handle loss during the probe phase.
+ * Called before the normal loss notification when careful resume is active.
+ * Retreats to the safe cwin recorded before the seed was applied.
+ * Returns 1 if the loss was handled by careful resume (suppress normal loss notification),
+ * 0 otherwise.
+ */
+void picoquic_careful_resume_on_loss(picoquic_cnx_t* cnx, picoquic_path_t* path_x, uint64_t current_time)
+{
+    if (cnx->careful_resume_phase == picoquic_careful_resume_unvalidated &&
+        path_x == cnx->path[0]) {
+        /* Enter safe retreat: notify CC to retreat to the safe cwin */
+        cnx->careful_resume_phase = picoquic_careful_resume_safe_retreat;
+        if (cnx->congestion_alg != NULL) {
+            picoquic_per_ack_state_t ack_state = { 0 };
+            ack_state.pc = picoquic_packet_context_application;
+            ack_state.nb_bytes_acknowledged = cnx->careful_resume_safe_cwin;
+            cnx->congestion_alg->alg_notify(cnx, path_x,
+                picoquic_congestion_notification_careful_resume_retreat,
+                &ack_state, current_time);
         }
     }
 }

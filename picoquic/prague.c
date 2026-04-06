@@ -385,6 +385,13 @@ void picoquic_prague_notify(
         case picoquic_congestion_notification_reset:
             picoquic_prague_reset(cnx, pr_state, path_x);
             break;
+        case picoquic_congestion_notification_careful_resume_retreat:
+            /* Careful Resume: probe failed, retreat to safe cwin */
+            path_x->cwin = ack_state->nb_bytes_acknowledged;
+            pr_state->ssthresh = ack_state->nb_bytes_acknowledged;
+            pr_state->alg_state = picoquic_prague_alg_congestion_avoidance;
+            path_x->is_ssthresh_initialized = 1;
+            break;
         default:
             /* ignore */
             break;

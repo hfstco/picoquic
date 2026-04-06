@@ -1576,8 +1576,16 @@ typedef enum {
     picoquic_congestion_notification_cwin_blocked,
     picoquic_congestion_notification_seed_cwin,
     picoquic_congestion_notification_reset,
-    picoquic_congestion_notification_lost_feedback /* notification of lost feedback */
+    picoquic_congestion_notification_lost_feedback, /* notification of lost feedback */
+    picoquic_congestion_notification_careful_resume_retreat /* careful resume: probe failed, retreat to safe cwin */
 } picoquic_congestion_notification_t;
+
+/* Careful Resume phases (draft-ietf-tsvwg-careful-resume) */
+typedef enum {
+    picoquic_careful_resume_none = 0,       /* No careful resume in progress */
+    picoquic_careful_resume_unvalidated,    /* Seed applied, probe not yet complete */
+    picoquic_careful_resume_safe_retreat    /* Probe failed, retreated to safe cwin */
+} picoquic_careful_resume_phase_t;
 
 typedef struct st_picoquic_per_ack_state_t {
     uint64_t rtt_measurement; /* RTT as measured when receiving the ACK */
