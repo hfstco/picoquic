@@ -290,7 +290,7 @@ int satellite_cubic_seeded_test(void)
 int satellite_cubic_loss_test(void)
 {
     /* Should be less than 10 sec per draft etosat, but cubic is a bit slower */
-    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 7500000, 250, 3, 0, 1, 0, 0, 0, 0);
+    return satellite_test_one(picoquic_cubic_algorithm, 100000000, 7700000, 250, 3, 0, 1, 0, 0, 0, 0);
 }
 
 int satellite_dcubic_seeded_test(void)

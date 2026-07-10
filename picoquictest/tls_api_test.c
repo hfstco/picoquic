@@ -5218,7 +5218,7 @@ int mtu_drop_cubic_test(void)
 
 int mtu_drop_dcubic_test(void)
 {
-    int ret = mtu_drop_cc_algotest(picoquic_dcubic_algorithm, 9200000);
+    int ret = mtu_drop_cc_algotest(picoquic_dcubic_algorithm, 9400000);
     return ret;
 }
 

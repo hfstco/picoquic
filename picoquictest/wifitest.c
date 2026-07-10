@@ -360,7 +360,7 @@ int wifi_bbr1_long_test(void)
 int wifi_cubic_long_test(void)
 {
     wifi_test_spec_t spec;
-    wifi_test_set_default_spec(&spec, picoquic_cubic_algorithm, 3100000);
+    wifi_test_set_default_spec(&spec, picoquic_cubic_algorithm, 3150000);
     spec.latency = 50000;
     spec.simulate_receive_block = 1;
     int ret = wifi_test_one(wifi_test_cubic_long, &spec);
